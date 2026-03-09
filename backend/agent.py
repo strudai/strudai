@@ -1,6 +1,7 @@
 import json
 import os
 from functools import lru_cache
+from pathlib import Path
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import SystemMessage
@@ -54,7 +55,8 @@ def _build_agent():
     ).bind_tools(TOOLS)
 
     tool_context = [{"name": t.name, "description": t.description} for t in registry._tools.values()]
-    system_prompt = render("system.j2", tools=tool_context)
+    workshop = Path(__file__).resolve().parent / "knowledge" / "workshop.md"
+    system_prompt = render("system.j2", tools=tool_context, workshop_content=workshop.read_text())
 
     async def chat(state: MessagesState) -> MessagesState:
         messages = [SystemMessage(content=system_prompt), *state["messages"]]
