@@ -8,11 +8,14 @@ StrudelGPT — agentic capabilities for [Strudel](https://strudel.cc/), a live c
 
 - `backend/` — Python orchestration layer (API server, agentic logic)
 - `frontend/` — Lightweight web UI that embeds Strudel via iframe
+- `tests/` — Unit tests mirroring the project structure
 - `main.py` — Application entrypoint
 
 ## Build & Run
 
 - `uv run main.py` — starts FastAPI server on http://localhost:8000
+- `uv run pytest` — run all tests
+- `uv run pytest -v` — run tests with verbose output
 - `uv add <pkg>` — add a dependency
 - `uv sync` — install/sync dependencies
 

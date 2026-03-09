@@ -9,18 +9,8 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
 
+from backend.prompts import render
 from backend.tools.registry import registry
-
-SYSTEM_PROMPT = (
-    "You are StrudelGPT, a helpful assistant for Strudel — a live coding music "
-    "platform. You help users create, understand, and modify Strudel patterns. "
-    "Keep responses concise and conversational. When sharing code, use Strudel's "
-    "mini-notation and pattern syntax.\n\n"
-    "You have tools to read and update the Strudel editor in the user's browser. "
-    "Use strudel_read_code to see what's currently in the editor, "
-    "strudel_update_code to write new code (this also evaluates it immediately), "
-    "and strudel_read_console to check for errors or logs."
-)
 
 memory = MemorySaver()
 
@@ -63,8 +53,11 @@ def _build_agent():
         api_key=os.environ["CLAUDE_API_KEY"],
     ).bind_tools(TOOLS)
 
+    tool_context = [{"name": t.name, "description": t.description} for t in registry._tools.values()]
+    system_prompt = render("system.j2", tools=tool_context)
+
     async def chat(state: MessagesState) -> MessagesState:
-        messages = [SystemMessage(content=SYSTEM_PROMPT), *state["messages"]]
+        messages = [SystemMessage(content=system_prompt), *state["messages"]]
         response = await llm.ainvoke(messages)
         return {"messages": [response]}
 

@@ -37,7 +37,7 @@ class ToolRegistry:
         tool_def = self._tools.get(name)
         if tool_def is None:
             raise KeyError(f"Unknown tool: {name}")
-        if tool_def.params_model and params:
+        if tool_def.params_model is not None and params is not None:
             validated = tool_def.params_model(**params)
             return await tool_def.handler(validated)
         return await tool_def.handler()
