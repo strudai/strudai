@@ -227,28 +227,30 @@
 
     .chat-toggle {
       position: absolute;
-      top: 1rem;
-      right: 1rem;
-      width: 48px;
-      height: 48px;
+      top: calc(1rem - 16px);
+      right: calc(1rem - 5px);
+      width: 56px;
+      height: 56px;
       border-radius: 50%;
-      background: var(--accent);
-      color: var(--text-primary);
+      background: none;
       border: none;
       cursor: pointer;
-      font-size: 1.25rem;
       display: none;
       align-items: center;
       justify-content: center;
-      box-shadow: var(--shadow);
+      padding: 0;
       transition:
-        background var(--transition-speed) ease,
         transform var(--transition-speed) ease,
         opacity var(--transition-speed) ease;
     }
 
+    .chat-toggle-icon {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
     .chat-toggle:hover {
-      background: var(--accent-hover);
       transform: scale(1.1);
     }
 
@@ -296,7 +298,9 @@ note("c a f e").sound("piano")
 -->
       </strudel-repl>
     </div>
-    <button class="chat-toggle visible" id="chatToggle">&#x1f4ac;</button>
+    <button class="chat-toggle visible" id="chatToggle">
+      <img src="/public/hans_logo.svg" alt="Chat" class="chat-toggle-icon" />
+    </button>
     <div class="chat-panel hidden no-transition" id="chatPanel">
       <div class="chat-header">
         <button class="chat-close" id="chatClose">&times;</button>
