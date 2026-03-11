@@ -63,14 +63,16 @@ class TestToolsRegisteredInRegistry:
         assert "strudel_update_code" in names
         assert "strudel_read_console" in names
         assert "web_search" in names
+        assert "sample_search" in names
 
     def test_schemas_exported(self):
         from backend.tools import registry
 
         schemas = registry.to_schemas()
-        assert len(schemas) >= 4
+        assert len(schemas) >= 5
         schema_names = {s["name"] for s in schemas}
         assert "strudel_read_code" in schema_names
         assert "strudel_update_code" in schema_names
         assert "strudel_read_console" in schema_names
         assert "web_search" in schema_names
+        assert "sample_search" in schema_names
