@@ -2,9 +2,6 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from backend.tools.registry import ToolRegistry
-
-
 class TestStrudelReadCode:
     @pytest.mark.asyncio
     async def test_read_code_calls_frontend(self):
@@ -76,3 +73,71 @@ class TestToolsRegisteredInRegistry:
         assert "strudel_read_console" in schema_names
         assert "web_search" in schema_names
         assert "sample_search" in schema_names
+
+
+FAKE_INDEX = [
+    {
+        "name": "strudel.cc/drums",
+        "url": "https://strudel.cc/drums.json",
+        "samples": ["bd", "sd", "hh", "cp"],
+        "builtin": True,
+    },
+    {
+        "name": "user/synth-pack",
+        "url": "https://example.com/synth.json",
+        "samples": ["pad", "lead", "bass_synth"],
+    },
+    {
+        "name": "user/percussion",
+        "url": "https://example.com/perc.json",
+        "samples": ["conga", "bongo", "bd_heavy"],
+    },
+]
+
+
+class TestSampleSearch:
+    @pytest.mark.asyncio
+    async def test_search_by_pack_name(self):
+        with patch(
+            "backend.tools.sample_search._fetch_index", return_value=FAKE_INDEX
+        ):
+            from backend.tools.sample_search import SampleSearchParams, sample_search
+
+            result = await sample_search(SampleSearchParams(query="drums"))
+            assert len(result["results"]) == 1
+            assert result["results"][0]["pack"] == "strudel.cc/drums"
+            assert result["results"][0]["sounds"] == ["bd", "sd", "hh", "cp"]
+            assert result["results"][0]["builtin"] is True
+
+    @pytest.mark.asyncio
+    async def test_search_by_sound_name(self):
+        with patch(
+            "backend.tools.sample_search._fetch_index", return_value=FAKE_INDEX
+        ):
+            from backend.tools.sample_search import SampleSearchParams, sample_search
+
+            result = await sample_search(SampleSearchParams(query="bd"))
+            packs = {r["pack"] for r in result["results"]}
+            assert "strudel.cc/drums" in packs
+            assert "user/percussion" in packs
+
+    @pytest.mark.asyncio
+    async def test_search_case_insensitive(self):
+        with patch(
+            "backend.tools.sample_search._fetch_index", return_value=FAKE_INDEX
+        ):
+            from backend.tools.sample_search import SampleSearchParams, sample_search
+
+            result = await sample_search(SampleSearchParams(query="SYNTH"))
+            assert len(result["results"]) == 1
+            assert result["results"][0]["pack"] == "user/synth-pack"
+
+    @pytest.mark.asyncio
+    async def test_search_no_results(self):
+        with patch(
+            "backend.tools.sample_search._fetch_index", return_value=FAKE_INDEX
+        ):
+            from backend.tools.sample_search import SampleSearchParams, sample_search
+
+            result = await sample_search(SampleSearchParams(query="zzzznotfound"))
+            assert result["results"] == []
