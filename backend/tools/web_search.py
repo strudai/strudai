@@ -1,5 +1,6 @@
 import asyncio
 
+from duckduckgo_search import DDGS
 from pydantic import BaseModel
 
 from backend.tools.registry import registry
@@ -15,8 +16,6 @@ class WebSearchParams(BaseModel):
     params_model=WebSearchParams,
 )
 async def web_search(params: WebSearchParams) -> dict:
-    from duckduckgo_search import DDGS
-
     def _search():
         with DDGS() as ddgs:
             return list(ddgs.text(params.query, max_results=5))
