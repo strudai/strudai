@@ -15,7 +15,7 @@ echo 'CLAUDE_API_KEY=sk-ant-...' > .env
 uv run main.py
 ```
 
-Open http://localhost:8000. The Strudel editor is on the left, the chat panel toggles from the bottom-right.
+Open <http://localhost:8000>. The Strudel editor is on the left, the chat panel toggles from the top-right.
 
 ## How it works
 
@@ -30,7 +30,7 @@ The frontend embeds a `<strudel-repl>` iframe and connects to the backend over W
 
 ## Project structure
 
-```
+```text
 backend/
   app.py              FastAPI server, WebSocket endpoint, static files
   agent.py            LangGraph agent with tool bindings
@@ -38,6 +38,7 @@ backend/
   tools/              Tool implementations + registry
   prompts/            Jinja2 system prompt template
   knowledge/
+    build.py           Run full pipeline (fetch + compress)
     fetch.py           Fetch Strudel docs from Codeberg
     fetch_examples.py  Fetch community examples from awesome-strudel
     compress.py        Compress docs + examples into agent context
@@ -54,14 +55,16 @@ tests/                Mirrors backend structure
 The agent loads a compressed reference at startup for better Strudel code generation. To build or refresh it:
 
 ```bash
-# Fetch raw docs from Codeberg (optional — already committed)
-uv run python -m backend.knowledge.fetch
+# Run the full pipeline: fetch docs, fetch examples, compress
+uv run python -m backend.knowledge.build
+```
 
-# Fetch community examples from awesome-strudel
-uv run python -m backend.knowledge.fetch_examples
+Or run individual steps:
 
-# Compress into ~2k token reference (requires CLAUDE_API_KEY)
-uv run python -m backend.knowledge.compress
+```bash
+uv run python -m backend.knowledge.fetch            # fetch docs from Codeberg
+uv run python -m backend.knowledge.fetch_examples    # fetch community examples
+uv run python -m backend.knowledge.compress          # compress into ~2k token reference
 ```
 
 To add more knowledge, drop `.md` files into `backend/knowledge/raw/` and re-run the compress step.
