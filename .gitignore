@@ -13,9 +13,6 @@ wheels/
 .env
 .env.*
 
-# Generated knowledge
-backend/knowledge/compressed.md
-
 # OS files
 .DS_Store
 
