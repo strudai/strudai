@@ -385,6 +385,18 @@
   <main>
     <div class="strudel-panel">
       <script src="https://unpkg.com/@strudel/repl@latest"></script>
+      <script>
+        const cdn = 'https://strudel.b-cdn.net';
+        initStrudel({
+          prebake: () => Promise.all([
+            samples(`${cdn}/piano.json`, `${cdn}/piano/`, { prebake: true }),
+            samples(`${cdn}/tidal-drum-machines.json`, `${cdn}/tidal-drum-machines/machines/`, { prebake: true, tag: 'drum-machines' }),
+            samples(`${cdn}/vcsl.json`, `${cdn}/VCSL/`, { prebake: true }),
+            samples(`${cdn}/uzu-drumkit.json`, `${cdn}/uzu-drumkit/`, { prebake: true, tag: 'drum-machines' }),
+            samples(`${cdn}/Dirt-Samples.json`, `${cdn}/Dirt-Samples/`, { prebake: true }),
+          ]),
+        });
+      </script>
       <strudel-editor id="strudelEditor">
         <!--
 note("c a f e").sound("piano")
