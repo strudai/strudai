@@ -10,7 +10,7 @@ class UpdateCodeParams(BaseModel):
 
 @registry.tool(
     name="strudel_update_code",
-    description="Update the Strudel editor code and evaluate it.",
+    description="Update the Strudel editor code and evaluate it. Returns {ok, logs} where logs contains any console output (errors, warnings) from evaluation.",
     params_model=UpdateCodeParams,
 )
 async def strudel_update_code(params: UpdateCodeParams) -> dict:

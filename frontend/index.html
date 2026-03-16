@@ -42,18 +42,13 @@
     .strudel-panel {
       position: absolute;
       inset: 0;
+      overflow: hidden;
     }
 
-    strudel-repl {
-      display: block;
+    /* The <strudel-editor> inserts a sibling div for the CodeMirror editor */
+    .strudel-panel>div {
       width: 100%;
       height: 100%;
-    }
-
-    strudel-repl iframe {
-      width: 100% !important;
-      height: 100% !important;
-      border: none;
     }
 
     /* Chat panel — floating overlay on the right */
@@ -292,12 +287,12 @@
 <body>
   <main>
     <div class="strudel-panel">
-      <script src="https://unpkg.com/@strudel/embed@latest"></script>
-      <strudel-repl id="strudelEditor">
+      <script src="https://unpkg.com/@strudel/repl@1.0.2"></script>
+      <strudel-editor id="strudelEditor">
         <!--
 note("c a f e").sound("piano")
 -->
-      </strudel-repl>
+      </strudel-editor>
     </div>
     <button class="chat-toggle visible" id="chatToggle">
       <img src="/public/hans_logo.svg" alt="Chat" class="chat-toggle-icon" />
@@ -307,7 +302,7 @@ note("c a f e").sound("piano")
         <button class="chat-close" id="chatClose">&times;</button>
       </div>
       <div class="chat-messages" id="chatMessages">
-        <div class="chat-message assistant">Hi I'm Hans Strudel. I hear you don't want to learn how to code?
+        <div class="chat-message assistant">Hi I'm Hans Strudel. Let's make some tekno.
         </div>
       </div>
       <div class="chat-input-area">
@@ -411,53 +406,35 @@ note("c a f e").sound("piano")
       };
     }
 
-    // --- Strudel iframe helpers ---
-    // The <strudel-repl> embed creates an iframe with code base64-encoded in the URL hash.
-    // There is no JS API on the element, so we interact via the iframe src.
+    // --- Strudel editor helpers ---
+    // The <strudel-editor> web component exposes .editor (a StrudelMirror instance).
+    // editor.setCode(code) updates the CodeMirror document.
+    // editor.evaluate() hot-swaps the pattern without stopping the scheduler.
 
-    // Track the current code separately so we always have it available.
-    // The embed creates the iframe in a setTimeout, so we read the initial
-    // code from the HTML comment inside the <strudel-repl> tag as fallback.
-    let currentCode = (() => {
-      const el = document.getElementById('strudelEditor');
-      // Try reading from iframe first (may not exist yet)
-      const iframe = el?.querySelector('iframe');
-      if (iframe) {
-        try {
-          const hash = new URL(iframe.src).hash.slice(1);
-          return atob(decodeURIComponent(hash));
-        } catch (e) { /* fall through */ }
-      }
-      // Fallback: parse the HTML comment the embed uses for initial code
-      const raw = el?.innerHTML ?? '';
-      const match = raw.match(/<!--\s*([\s\S]*?)\s*-->/);
-      return match ? match[1].trim() : '';
-    })();
-
-    function getStrudelCode() {
-      return currentCode;
+    function getStrudelEditor() {
+      return document.getElementById('strudelEditor')?.editor;
     }
 
-    function setStrudelCode(code) {
-      currentCode = code;
-      const el = document.getElementById('strudelEditor');
-      if (!el) return false;
-      // Remove existing iframe and create a new one with updated code
-      const oldIframe = el.querySelector('iframe');
-      const iframe = document.createElement('iframe');
-      iframe.src = `https://strudel.cc/#${encodeURIComponent(btoa(code))}`;
-      iframe.setAttribute('width', '600');
-      iframe.setAttribute('height', '400');
-      if (oldIframe) {
-        oldIframe.replaceWith(iframe);
-      } else {
-        el.appendChild(iframe);
+    function getStrudelCode() {
+      const editor = getStrudelEditor();
+      return editor ? editor.code : '';
+    }
+
+    async function setStrudelCode(code) {
+      const editor = getStrudelEditor();
+      if (!editor) return false;
+      editor.setCode(code);
+      try {
+        await editor.evaluate();
+      } catch (err) {
+        console.error('[strudel] evaluate failed:', err);
+        return false;
       }
       return true;
     }
 
     // --- Command handlers (backend → frontend) ---
-    function handleCommand(msg) {
+    async function handleCommand(msg) {
       let responseData = {};
 
       try {
@@ -468,8 +445,11 @@ note("c a f e").sound("piano")
 
           case 'update_code':
             if (msg.params?.code != null) {
-              const ok = setStrudelCode(msg.params.code);
-              responseData = { ok };
+              // Drain buffer so we only capture logs from this evaluation
+              consoleBuffer.splice(0);
+              const ok = await setStrudelCode(msg.params.code);
+              const logs = consoleBuffer.splice(0);
+              responseData = { ok, logs };
             } else {
               responseData = { ok: false, error: 'Missing code param' };
             }
