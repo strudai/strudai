@@ -36,6 +36,9 @@ async def _handle_chat(text: str, session_id: str) -> None:
             logger.debug("Skipping agent event %s — no frontend connected", event_type)
 
     try:
+        code = await registry.execute("strudel_read_code")
+        current_code = code.get("code", "")
+        text = f"[Current code in editor]\n```\n{current_code}\n```\n\n{text}"
         response_text = await agent_respond(text, session_id, on_event=on_event)
     except Exception:
         logger.exception("agent_respond failed")

@@ -458,9 +458,17 @@ note("c a f e").sound("piano")
       }
     }
 
-    console.log = (...args) => { appendConsoleLine('log', args.join(' ')); origLog.apply(console, args); };
-    console.error = (...args) => { appendConsoleLine('error', args.join(' ')); origError.apply(console, args); };
-    console.warn = (...args) => { appendConsoleLine('warn', args.join(' ')); origWarn.apply(console, args); };
+    function filterStyledArgs(args) {
+      // Drop CSS style strings from styled console.log('%c...', 'css') calls
+      if (typeof args[0] === 'string' && args[0].startsWith('%c')) {
+        args = [args[0].replaceAll('%c', ''), ...args.slice(1).filter(a => typeof a !== 'string' || !a.includes('background-color'))];
+      }
+      return args.filter(a => typeof a !== 'string' || !a.match(/^[\s;]*background-color:/));
+    }
+
+    console.log = (...args) => { const f = filterStyledArgs(args); if (f.length) appendConsoleLine('log', f.join(' ')); origLog.apply(console, args); };
+    console.error = (...args) => { const f = filterStyledArgs(args); if (f.length) appendConsoleLine('error', f.join(' ')); origError.apply(console, args); };
+    console.warn = (...args) => { const f = filterStyledArgs(args); if (f.length) appendConsoleLine('warn', f.join(' ')); origWarn.apply(console, args); };
 
     // --- Console panel toggle ---
     const consolePanel = document.getElementById('consolePanel');
