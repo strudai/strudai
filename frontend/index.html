@@ -51,6 +51,103 @@
       height: 100%;
     }
 
+    /* Console panel — floating overlay at bottom-left */
+    .console-panel {
+      position: absolute;
+      bottom: 1rem;
+      left: 1rem;
+      width: 420px;
+      max-height: 200px;
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      z-index: 20;
+      font-family: monospace;
+      font-size: 0.78rem;
+      transition: opacity var(--transition-speed) ease, transform var(--transition-speed) ease;
+    }
+
+    .console-panel.hidden {
+      opacity: 0;
+      transform: translateY(1rem);
+      pointer-events: none;
+      visibility: hidden;
+    }
+
+    .console-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.3rem 0.6rem;
+      border-bottom: 1px solid var(--surface-border);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      user-select: none;
+    }
+
+    .console-header button {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0 0.25rem;
+    }
+
+    .console-header button:hover {
+      color: var(--text-primary);
+    }
+
+    .console-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.4rem 0.6rem;
+    }
+
+    .console-line {
+      padding: 0.1rem 0;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: var(--text-secondary);
+    }
+
+    .console-line.error {
+      color: #f87171;
+    }
+
+    .console-line.warn {
+      color: #fbbf24;
+    }
+
+    .console-toggle {
+      position: absolute;
+      bottom: 1rem;
+      left: 1rem;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius);
+      color: var(--text-muted);
+      cursor: pointer;
+      font-family: monospace;
+      font-size: 0.78rem;
+      padding: 0.3rem 0.7rem;
+      z-index: 20;
+      transition: opacity var(--transition-speed) ease;
+    }
+
+    .console-toggle:hover {
+      color: var(--text-primary);
+    }
+
+    .console-toggle.has-errors {
+      color: #f87171;
+      border-color: #f87171;
+    }
+
     /* Chat panel — floating overlay on the right */
     .chat-panel {
       position: absolute;
@@ -287,12 +384,20 @@
 <body>
   <main>
     <div class="strudel-panel">
-      <script src="https://unpkg.com/@strudel/repl@1.0.2"></script>
+      <script src="https://unpkg.com/@strudel/repl@latest"></script>
       <strudel-editor id="strudelEditor">
         <!--
 note("c a f e").sound("piano")
 -->
       </strudel-editor>
+    </div>
+    <button class="console-toggle" id="consoleToggle">&gt;_ console</button>
+    <div class="console-panel hidden" id="consolePanel">
+      <div class="console-header">
+        <span>&gt;_ console</span>
+        <button id="consoleClose" title="Minimise">&#x2212;</button>
+      </div>
+      <div class="console-body" id="consoleBody"></div>
     </div>
     <button class="chat-toggle visible" id="chatToggle">
       <img src="/public/hans_logo.svg" alt="Chat" class="chat-toggle-icon" />
@@ -315,12 +420,49 @@ note("c a f e").sound("piano")
   <script>
     // --- Console log interception ---
     const consoleBuffer = [];
+    const consoleBody = document.getElementById('consoleBody');
+    const consoleToggleBtn = document.getElementById('consoleToggle');
+    const MAX_CONSOLE_LINES = 200;
+
     const origLog = console.log;
     const origError = console.error;
     const origWarn = console.warn;
-    console.log = (...args) => { consoleBuffer.push({ level: 'log', text: args.join(' ') }); origLog.apply(console, args); };
-    console.error = (...args) => { consoleBuffer.push({ level: 'error', text: args.join(' ') }); origError.apply(console, args); };
-    console.warn = (...args) => { consoleBuffer.push({ level: 'warn', text: args.join(' ') }); origWarn.apply(console, args); };
+
+    function appendConsoleLine(level, text) {
+      consoleBuffer.push({ level, text });
+      const line = document.createElement('div');
+      line.className = `console-line ${level}`;
+      line.textContent = text;
+      consoleBody.appendChild(line);
+      // Trim old lines
+      while (consoleBody.children.length > MAX_CONSOLE_LINES) {
+        consoleBody.firstChild.remove();
+      }
+      consoleBody.scrollTop = consoleBody.scrollHeight;
+      // Highlight toggle button on errors
+      if (level === 'error') {
+        consoleToggleBtn.classList.add('has-errors');
+      }
+    }
+
+    console.log = (...args) => { appendConsoleLine('log', args.join(' ')); origLog.apply(console, args); };
+    console.error = (...args) => { appendConsoleLine('error', args.join(' ')); origError.apply(console, args); };
+    console.warn = (...args) => { appendConsoleLine('warn', args.join(' ')); origWarn.apply(console, args); };
+
+    // --- Console panel toggle ---
+    const consolePanel = document.getElementById('consolePanel');
+    const consoleClose = document.getElementById('consoleClose');
+
+    consoleToggleBtn.addEventListener('click', () => {
+      consolePanel.classList.remove('hidden');
+      consoleToggleBtn.style.display = 'none';
+      consoleToggleBtn.classList.remove('has-errors');
+    });
+
+    consoleClose.addEventListener('click', () => {
+      consolePanel.classList.add('hidden');
+      consoleToggleBtn.style.display = '';
+    });
 
     // --- Chat UI ---
     const chatMessages = document.getElementById('chatMessages');
