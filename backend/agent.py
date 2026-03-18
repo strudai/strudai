@@ -26,12 +26,13 @@ def _build_agent():
     tools = registry.to_langchain_tools()
 
     llm = ChatAnthropic(
-        model="claude-haiku-4-5-20251001",
+        model="claude-sonnet-4-6",
         api_key=os.environ["CLAUDE_API_KEY"],
     ).bind_tools(tools)
 
     knowledge = KNOWLEDGE_FILE.read_text() if KNOWLEDGE_FILE.exists() else ""
     system_prompt = render("system.j2", knowledge=knowledge)
+    print("System prompt:", system_prompt)
 
     async def chat(state: MessagesState) -> MessagesState:
         messages = [SystemMessage(content=system_prompt), *state["messages"]]

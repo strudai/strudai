@@ -203,17 +203,12 @@ all(x => x.room(.3))
 Breakbeat
 
 ```strudel
-
 samples('github:switchangel/breaks')
 setcpm(150/4)
 
-$:stack(
-  s("breaks/2").fit().scrub(irand(16).div(16).seg(8).rib("200 <10!3 13> ",1)).almostNever(ply("<2 3>")).orbit(2).gain(0.9)
-  ,s("bd:2!").beat("0 10", 16)
-  ,s("sd:4").beat("4 7? 12", 16)
-  ,s("white!8").decay(0.05).almostNever(ply(3))
-  .compressor("-20:20:10:.002:.02").gain(0.8)
-  )._scope()
+$: stack(
+  s("breaks/2").fit().scrub(irand(16).div(16).seg(8)).almostNever(ply("2"))
+)
 ```
 
 **Common Conventions:**
@@ -230,3 +225,4 @@ $:stack(
 - Stack textures with `.layer()` or `.superimpose()` for richness
 - Use `$:` or `drums:` to split different sounds, use `_:` if you want to mute a sound
 - Set the tempo using `setcpm(bpm/4)`
+- Use degrees over notes
