@@ -35,6 +35,21 @@ main {
   inset: 0;
   overflow: hidden;
   --background: #000000;
+  --foreground: #00ff41;
+  --caret: #00ff41;
+  --gutterForeground: #00ff4144;
+}
+
+/* Override CodeMirror syntax highlighting — green monochrome */
+.strudel-panel .cm-editor .cm-line * {
+  color: #00ff41 !important;
+}
+
+/* Strings and numbers in lighter green */
+.strudel-panel .cm-editor .ͼd,
+.strudel-panel .cm-editor .ͼe,
+.strudel-panel .cm-editor .ͼc {
+  color: #90ffb0 !important;
 }
 
 /* The <strudel-editor> inserts a sibling div for the CodeMirror editor */
