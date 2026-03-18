@@ -21,6 +21,7 @@ app = FastAPI(title="StrudelGPT")
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
 _background_tasks: set[asyncio.Task] = set()
+_current_chat_task: asyncio.Task | None = None
 
 
 @app.get("/api/tools")
@@ -40,6 +41,9 @@ async def _handle_chat(text: str, session_id: str) -> None:
         current_code = code.get("code", "")
         text = f"[Current code in editor]\n```\n{current_code}\n```\n\n{text}"
         response_text = await agent_respond(text, session_id, on_event=on_event)
+    except asyncio.CancelledError:
+        logger.info("Agent task cancelled")
+        return
     except Exception:
         logger.exception("agent_respond failed")
         response_text = "Sorry, something went wrong. Please try again."
@@ -62,12 +66,18 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                 manager.resolve(data["id"], data.get("data", {}))
 
             elif msg_type == "event":
+                global _current_chat_task
                 event = data.get("event")
                 if event == "chat_message":
                     text = data.get("data", {}).get("text", "")
                     task = asyncio.create_task(_handle_chat(text, manager.session_id))
+                    _current_chat_task = task
                     _background_tasks.add(task)
                     task.add_done_callback(_background_tasks.discard)
+                elif event == "stop_agent":
+                    if _current_chat_task and not _current_chat_task.done():
+                        _current_chat_task.cancel()
+                        _current_chat_task = None
     except WebSocketDisconnect:
         manager.disconnect()
 

@@ -320,6 +320,18 @@
       background: var(--accent-hover);
     }
 
+    .chat-input-area button.hidden {
+      display: none;
+    }
+
+    #stopBtn {
+      background: #8b2020;
+    }
+
+    #stopBtn:hover {
+      background: #a52a2a;
+    }
+
     .chat-toggle {
       position: absolute;
       top: calc(1rem - 16px);
@@ -426,6 +438,7 @@ note("c a f e").sound("piano")
       <div class="chat-input-area">
         <input type="text" id="chatInput" placeholder="Describe a pattern..." autofocus />
         <button id="sendBtn">Send</button>
+        <button id="stopBtn" class="hidden">Stop</button>
       </div>
     </div>
   </main>
@@ -489,6 +502,12 @@ note("c a f e").sound("piano")
     const chatMessages = document.getElementById('chatMessages');
     const chatInput = document.getElementById('chatInput');
     const sendBtn = document.getElementById('sendBtn');
+    const stopBtn = document.getElementById('stopBtn');
+
+    function setAgentBusy(busy) {
+      sendBtn.classList.toggle('hidden', busy);
+      stopBtn.classList.toggle('hidden', !busy);
+    }
 
     let statusEl = null;
     const toolCallEls = new Map(); // tool name -> element
@@ -644,6 +663,7 @@ note("c a f e").sound("piano")
         removeStatus();
         toolCallEls.clear();
         addMessage(msg.data.text, 'assistant');
+        setAgentBusy(false);
       }
     }
 
@@ -655,12 +675,22 @@ note("c a f e").sound("piano")
       chatInput.value = '';
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'event', event: 'chat_message', data: { text } }));
+        setAgentBusy(true);
       }
     }
 
     sendBtn.addEventListener('click', handleSend);
     chatInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') handleSend();
+    });
+
+    stopBtn.addEventListener('click', () => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'event', event: 'stop_agent' }));
+      }
+      removeStatus();
+      toolCallEls.clear();
+      setAgentBusy(false);
     });
 
     // --- Chat panel toggle ---
