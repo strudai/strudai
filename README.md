@@ -1,6 +1,6 @@
 # StrudelGPT
 
-An AI assistant for [Strudel](https://strudel.cc/), the browser-based live coding music platform. Chat with "Hans Strudel" to create, modify, and understand Strudel patterns — he speaks with a German accent and makes ze beats.
+An AI assistant for [Strudel](https://strudel.cc/), the browser-based live coding music platform. Chat with "Hans Strudel" to create, modify, and understand Strudel patterns.
 
 ## Quick start
 
