@@ -1,6 +1,6 @@
 # StrudelGPT
 
-An AI assistant for [Strudel](https://strudel.cc/), the browser-based live coding music platform. Chat with "Hans Strudel" to create, modify, and understand Strudel patterns — the agent reads your editor, writes code, checks the console, and searches the web.
+An AI assistant for [Strudel](https://strudel.cc/), the browser-based live coding music platform. Chat with "Hans Strudel" to create, modify, and understand Strudel patterns — he speaks with a German accent and makes ze beats.
 
 ## Quick start
 
@@ -8,25 +8,31 @@ An AI assistant for [Strudel](https://strudel.cc/), the browser-based live codin
 # Install dependencies
 uv sync
 
-# Add your API key
-echo 'CLAUDE_API_KEY=sk-ant-...' > .env
-
 # Run
 uv run main.py
 ```
 
-Open <http://localhost:8000>. The Strudel editor is on the left, the chat panel toggles from the top-right.
+Open <http://localhost:8000>. Click the Hans Strudel icon in the top-right to open the chat panel. Set your Anthropic API key in the settings menu (gear icon) to get started.
 
 ## How it works
 
-The frontend embeds a `<strudel-repl>` iframe and connects to the backend over WebSocket. When you send a chat message, the LangGraph agent (Claude Haiku) processes it and can use tools to interact with the editor:
+The frontend embeds a `<strudel-editor>` web component (via `@strudel/repl` CDN) and connects to the backend over WebSocket. The editor code is automatically sent with each chat message so the agent always knows what's playing. Responses are post-processed with a light German accent.
+
+### Tools
 
 | Tool | Description |
 |------|-------------|
 | `strudel_read_code` | Read current code from the editor |
 | `strudel_update_code` | Write and evaluate new code |
 | `strudel_read_console` | Check for errors or logs |
-| `web_search` | Search Strudel docs and examples |
+| `strudel_docs_search` | Search official Strudel documentation (Algolia) |
+| `sample_search` | Find sample packs and sounds by name |
+| `web_search` | General web search (DuckDuckGo) |
+
+### Settings
+
+- **Model** — choose between Haiku (fast/cheap, default), Sonnet (balanced), or Opus (most capable)
+- **API key** — stored in your browser's `localStorage`, never on the server. Each user brings their own key.
 
 ## Project structure
 
@@ -34,6 +40,7 @@ The frontend embeds a `<strudel-repl>` iframe and connects to the backend over W
 backend/
   app.py              FastAPI server, WebSocket endpoint, static files
   agent.py            LangGraph agent with tool bindings
+  accent.py           German accent post-processing
   ws.py               WebSocket connection manager
   tools/              Tool implementations + registry
   prompts/            Jinja2 system prompt template
@@ -45,8 +52,11 @@ backend/
     raw/               Source markdown files (fetched)
     compressed.md      Generated brief reference (gitignored)
 frontend/
-  index.html          UI — Strudel embed + chat panel (vanilla HTML/TS)
-  theme.css           Dark theme
+  index.html          UI shell — Strudel editor + chat panel
+  app.js              WebSocket client, chat logic, settings, console
+  styles.css          Component styles
+  theme.css           Design tokens (colors, spacing)
+  public/             Static assets (logo)
 tests/                Mirrors backend structure
 ```
 
@@ -79,5 +89,5 @@ uv run pytest -v        # verbose output
 ## Stack
 
 - **Backend**: Python 3.13, FastAPI, LangGraph, LangChain, Claude API
-- **Frontend**: Vanilla HTML/TypeScript, Strudel embed via CDN
+- **Frontend**: Vanilla HTML/JS, Strudel embed via `@strudel/repl` CDN
 - **Tools**: uv (Python), pytest
