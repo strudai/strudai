@@ -307,6 +307,51 @@ main {
   background: var(--accent-hover);
 }
 
+/* --- Info hint tooltip --- */
+
+.info-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid var(--text-muted);
+  color: var(--text-muted);
+  font-size: 0.6rem;
+  font-style: italic;
+  font-family: serif;
+  cursor: help;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.info-hint:hover {
+  color: var(--text-primary);
+  border-color: var(--text-primary);
+}
+
+.info-hint:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: -8px;
+  width: 220px;
+  padding: 0.4rem 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 0.25rem;
+  box-shadow: var(--shadow);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-family: system-ui, sans-serif;
+  line-height: 1.4;
+  white-space: normal;
+  z-index: 30;
+  pointer-events: none;
+}
+
 /* --- Chat messages --- */
 
 .chat-messages {

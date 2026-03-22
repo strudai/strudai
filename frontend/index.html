@@ -51,6 +51,8 @@ note("c a f e").sound("piano")
       <div class="settings-drawer" id="settingsDrawer" style="display:none;">
         <label>
           Model
+          <span class="info-hint"
+            data-tooltip="Haiku — fast and cheap, good for simple patterns. Sonnet — balanced, better at complex tasks. Opus — most capable, best for tricky requests. Better models are more expensive.">i</span>
           <select id="modelSelect">
             <option value="claude-haiku-4-5-20251001" selected>Haiku</option>
             <option value="claude-sonnet-4-6">Sonnet</option>
@@ -59,6 +61,8 @@ note("c a f e").sound("piano")
         </label>
         <label>
           API key
+          <span class="info-hint"
+            data-tooltip="Get your key at console.anthropic.com → API Keys. Click the saved key to clear it.">i</span>
           <span class="api-key-field">
             <span class="api-key-mask" id="apiKeyMask"></span>
             <input type="password" id="apiKeyInput" placeholder="sk-ant-..." />
@@ -67,7 +71,8 @@ note("c a f e").sound("piano")
         </label>
       </div>
       <div class="chat-messages" id="chatMessages">
-        <div class="chat-message assistant">Guten Tag, I am Hans Strudel. Tell me vhat you vant to hear and I vill make ze beats.</div>
+        <div class="chat-message assistant">Guten Tag, I am Hans Strudel. Tell me vhat you vant to hear and I vill make
+          ze beats.</div>
       </div>
       <div class="chat-input-area">
         <input type="text" id="chatInput" placeholder="Describe a pattern..." autofocus />

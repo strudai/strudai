@@ -86,6 +86,8 @@ function refreshApiKeyUI() {
   const key = getApiKey();
   sendBtn.disabled = !key;
   apiKeyMask.textContent = key ? `sk-···${key.slice(-4)}` : '';
+  chatInput.placeholder = key ? 'Describe a pattern...' : 'Set API key in settings to enable';
+  chatInput.disabled = !key;
 }
 
 // --- Settings drawer ---
@@ -118,7 +120,7 @@ apiKeyInput.addEventListener('keydown', (e) => {
 });
 
 apiKeyMask.addEventListener('click', () => {
-  apiKeyMask.textContent = '';
+  saveApiKey('');
   apiKeyInput.focus();
 });
 
