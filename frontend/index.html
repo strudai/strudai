@@ -62,9 +62,10 @@ note("c a f e").sound("piano")
         <label>
           API key
           <span class="info-hint"
-            data-tooltip="Get your key at console.anthropic.com → API Keys. Click the saved key to clear it.">i</span>
-          <span class="api-key-field">
+            data-tooltip="Get your key at console.anthropic.com → API Keys.">i</span>
+          <span class="api-key-field" id="apiKeyField">
             <span class="api-key-mask" id="apiKeyMask"></span>
+            <button id="apiKeyClearBtn">&times;</button>
             <input type="password" id="apiKeyInput" placeholder="sk-ant-..." />
             <button id="apiKeySaveBtn">Save</button>
           </span>

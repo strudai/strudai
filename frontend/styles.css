@@ -288,20 +288,29 @@ main {
   padding: 0.25rem 0.4rem;
   font-size: 0.8rem;
   color: var(--text-muted);
-  cursor: pointer;
   letter-spacing: 0.1em;
 }
 
-.api-key-mask:empty {
-  display: none;
+/* When key is saved: show mask + clear, hide input + save */
+.api-key-field.has-key .api-key-mask { display: inline; }
+.api-key-field.has-key #apiKeyClearBtn { display: inline; }
+.api-key-field.has-key #apiKeyInput { display: none; }
+.api-key-field.has-key #apiKeySaveBtn { display: none; }
+
+/* When no key: hide mask + clear, show input + save */
+.api-key-field:not(.has-key) .api-key-mask { display: none; }
+.api-key-field:not(.has-key) #apiKeyClearBtn { display: none; }
+
+#apiKeyClearBtn {
+  background: none !important;
+  color: var(--text-muted) !important;
+  font-size: 1rem;
+  padding: 0 0.2rem !important;
+  line-height: 1;
 }
 
-.api-key-mask:not(:empty) ~ input {
-  display: none;
-}
-
-.api-key-mask:not(:empty) ~ button {
-  display: none;
+#apiKeyClearBtn:hover {
+  color: var(--text-primary) !important;
 }
 
 .settings-drawer button {

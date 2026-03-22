@@ -63,6 +63,8 @@ const modelSelect = document.getElementById('modelSelect');
 const apiKeyInput = document.getElementById('apiKeyInput');
 const apiKeySaveBtn = document.getElementById('apiKeySaveBtn');
 const apiKeyMask = document.getElementById('apiKeyMask');
+const apiKeyClearBtn = document.getElementById('apiKeyClearBtn');
+const apiKeyField = document.getElementById('apiKeyField');
 
 // --- State ---
 let ws;
@@ -86,6 +88,7 @@ function refreshApiKeyUI() {
   const key = getApiKey();
   sendBtn.disabled = !key;
   apiKeyMask.textContent = key ? `sk-···${key.slice(-4)}` : '';
+  apiKeyField.classList.toggle('has-key', !!key);
   chatInput.placeholder = key ? 'Describe a pattern...' : 'Set API key in settings to enable';
   chatInput.disabled = !key;
 }
@@ -119,7 +122,7 @@ apiKeyInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') apiKeySaveBtn.click();
 });
 
-apiKeyMask.addEventListener('click', () => {
+apiKeyClearBtn.addEventListener('click', () => {
   saveApiKey('');
   apiKeyInput.focus();
 });
