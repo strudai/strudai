@@ -65,11 +65,71 @@ const apiKeySaveBtn = document.getElementById('apiKeySaveBtn');
 const apiKeyMask = document.getElementById('apiKeyMask');
 const apiKeyClearBtn = document.getElementById('apiKeyClearBtn');
 const apiKeyField = document.getElementById('apiKeyField');
+const setStatusBar = document.getElementById('setStatusBar');
+const setStatusLabel = document.getElementById('setStatusLabel');
+const setStatusSection = document.getElementById('setStatusSection');
+const setStopBtn = document.getElementById('setStopBtn');
 
 // --- State ---
 let ws;
 let statusEl = null;
 const toolCallEls = new Map();
+
+// --- Cycle tracking ---
+let cycleOrigin = null;
+let cycleCps = 0.5; // default 120 bpm → 0.5 cps (4 beats per cycle)
+let cycleInterval = null;
+let lastCycle = -1;
+let totalBars = 0;
+let barMarkers = []; // [{ bar: absoluteBar, song: string, note: string }]
+
+function getAudioCtx() {
+  return typeof getAudioContext === 'function' ? getAudioContext() : null;
+}
+
+function getCurrentCycle() {
+  const ctx = getAudioCtx();
+  if (!ctx || cycleOrigin === null) return { cycle: -1, cps: cycleCps, elapsed: 0 };
+  const elapsed = ctx.currentTime - cycleOrigin;
+  return { cycle: Math.floor(elapsed * cycleCps), cps: cycleCps, elapsed };
+}
+
+function buildBarMarkers(plan) {
+  const markers = [];
+  let offset = 0;
+  for (const song of plan.songs) {
+    for (const section of song.sections) {
+      markers.push({ bar: offset + section.bar, song: song.name, note: section.note });
+    }
+    offset += song.bars;
+  }
+  totalBars = offset;
+  return markers.sort((a, b) => a.bar - b.bar);
+}
+
+function getCurrentSection(cycle) {
+  let current = null;
+  for (const m of barMarkers) {
+    if (m.bar <= cycle) current = m;
+    else break;
+  }
+  return current;
+}
+
+function updateSetStatus(cycle) {
+  setStatusLabel.textContent = `Set active — bar ${cycle}/${totalBars}`;
+  const section = getCurrentSection(cycle);
+  setStatusSection.textContent = section ? `${section.song}: ${section.note}` : '';
+}
+
+function checkBarMarkers(cycle) {
+  for (const m of barMarkers) {
+    if (m.bar > lastCycle && m.bar <= cycle) {
+      console.log(`[set] bar ${m.bar} — ${m.song}: ${m.note}`);
+    }
+  }
+  lastCycle = cycle;
+}
 
 function getApiKey() {
   return localStorage.getItem('strudelgpt_api_key') || '';
@@ -270,6 +330,9 @@ async function handleCommand(msg) {
       case 'read_console':
         responseData = { logs: consoleBuffer.splice(0) };
         break;
+      case 'read_cycle':
+        responseData = getCurrentCycle();
+        break;
       default:
         responseData = { error: `Unknown action: ${msg.action}` };
     }
@@ -291,6 +354,44 @@ function handleEvent(msg) {
   } else if (msg.event === 'agent_tool_result') {
     console.log(`[tool] ${msg.data.tool} done`);
     resolveToolCall(msg.data.tool);
+  } else if (msg.event === 'start_set') {
+    const ctx = getAudioCtx();
+    if (ctx) {
+      cycleCps = msg.data.cps || 0.5;
+      cycleOrigin = ctx.currentTime;
+      lastCycle = 0;
+      barMarkers = msg.data.plan ? buildBarMarkers(msg.data.plan) : [];
+      if (cycleInterval) clearInterval(cycleInterval);
+      cycleInterval = setInterval(() => {
+        const info = getCurrentCycle();
+        if (info.cycle >= 0) checkBarMarkers(info.cycle);
+        updateSetStatus(info.cycle);
+        wsSend('cycle_update', info);
+      }, 1000);
+      setStatusBar.classList.remove('hidden');
+      updateSetStatus(0);
+      console.log(`[set] started — tracking cycles at ${msg.data.bpm || Math.round(cycleCps * 240)} bpm`);
+    } else {
+      console.error('[set] cannot start — no AudioContext available');
+    }
+  } else if (msg.event === 'stop_set') {
+    if (cycleInterval) clearInterval(cycleInterval);
+    cycleInterval = null;
+    cycleOrigin = null;
+    lastCycle = -1;
+    barMarkers = [];
+    setStatusBar.classList.add('hidden');
+    console.log('[set] stopped');
+  } else if (msg.event === 'plan_set') {
+    const p = msg.data;
+    console.log(`[set] ${p.title} — ${p.genre} @ ${p.bpm} bpm`);
+    if (p.instructions) console.log(`[set] ${p.instructions}`);
+    for (const song of p.songs) {
+      console.log(`[set] ${song.name} (${song.bars} bars) — ${song.description}`);
+      for (const s of song.sections) {
+        console.log(`[set]   bar ${s.bar}: ${s.note}`);
+      }
+    }
   } else if (msg.event === 'chat_response') {
     removeStatus();
     toolCallEls.clear();
@@ -322,6 +423,18 @@ stopBtn.addEventListener('click', () => {
   removeStatus();
   toolCallEls.clear();
   setAgentBusy(false);
+});
+
+// --- Set stop button ---
+setStopBtn.addEventListener('click', () => {
+  wsSend('stop_set');
+  if (cycleInterval) clearInterval(cycleInterval);
+  cycleInterval = null;
+  cycleOrigin = null;
+  lastCycle = -1;
+  barMarkers = [];
+  setStatusBar.classList.add('hidden');
+  console.log('[set] interrupted by user');
 });
 
 // --- Chat panel toggle ---

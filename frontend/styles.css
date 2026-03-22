@@ -373,6 +373,75 @@ main {
   pointer-events: none;
 }
 
+/* --- Set status bar --- */
+
+.set-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.75rem;
+  background: rgba(0, 255, 65, 0.08);
+  border-bottom: 1px solid rgba(0, 255, 65, 0.2);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.set-status-bar.hidden {
+  display: none;
+}
+
+.set-status-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.set-status-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.set-status-label::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #00ff41;
+  flex-shrink: 0;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+.set-status-section {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  padding-left: calc(6px + 0.4rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.set-stop-btn {
+  background: none;
+  border: 1px solid var(--surface-border);
+  border-radius: 0.25rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.5rem;
+}
+
+.set-stop-btn:hover {
+  border-color: #f87171;
+  color: #f87171;
+}
+
 /* --- Chat messages --- */
 
 .chat-messages {
