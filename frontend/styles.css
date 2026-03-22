@@ -58,6 +58,21 @@ main {
   height: 100%;
 }
 
+/* Force all containers between panel and scroller to fill available space */
+.strudel-panel strudel-editor {
+  display: block;
+  position: absolute;
+  inset: 0;
+}
+
+.strudel-panel .cm-editor {
+  height: 100% !important;
+}
+
+.strudel-panel .cm-scroller {
+  overflow: auto !important;
+}
+
 /* --- Console --- */
 
 .console-panel {
