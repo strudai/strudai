@@ -18,3 +18,7 @@ wheels/
 
 # Node (if added later)
 node_modules/
+
+# Claude files
+.claude/
+**/CLAUDE.md
