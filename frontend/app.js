@@ -109,6 +109,7 @@ settingsBtn.addEventListener('click', () => {
 
 modelSelect.addEventListener('change', () => {
   wsSend('set_model', { model: modelSelect.value });
+  console.log(`[model] switched to ${modelSelect.value}`);
 });
 
 apiKeySaveBtn.addEventListener('click', () => {
@@ -116,6 +117,7 @@ apiKeySaveBtn.addEventListener('click', () => {
   if (!key) return;
   saveApiKey(key);
   apiKeyInput.value = '';
+  console.log(`[api-key] saved (···${key.slice(-4)})`);
 });
 
 apiKeyInput.addEventListener('keydown', (e) => {
@@ -125,6 +127,7 @@ apiKeyInput.addEventListener('keydown', (e) => {
 apiKeyClearBtn.addEventListener('click', () => {
   saveApiKey('');
   apiKeyInput.focus();
+  console.log('[api-key] removed');
 });
 
 // --- Chat UI helpers ---
@@ -281,8 +284,12 @@ function handleEvent(msg) {
   if (msg.event === 'agent_thinking') {
     showStatus('Thinking');
   } else if (msg.event === 'agent_tool_call') {
+    const inputStr = typeof msg.data.input === 'object' ? JSON.stringify(msg.data.input) : String(msg.data.input);
+    const truncated = inputStr.length > 120 ? inputStr.slice(0, 120) + '...' : inputStr;
+    console.log(`[tool] ${msg.data.tool}(${truncated})`);
     showToolCall(msg.data.tool, msg.data.input);
   } else if (msg.event === 'agent_tool_result') {
+    console.log(`[tool] ${msg.data.tool} done`);
     resolveToolCall(msg.data.tool);
   } else if (msg.event === 'chat_response') {
     removeStatus();
