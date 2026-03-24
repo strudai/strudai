@@ -31,7 +31,7 @@ function filterStyledArgs(args) {
 }
 
 console.log = (...args) => { const f = filterStyledArgs(args); if (f.length) appendConsoleLine('log', f.join(' ')); origLog.apply(console, args); };
-console.error = (...args) => { const f = filterStyledArgs(args); if (f.length) appendConsoleLine('error', f.join(' ')); origError.apply(console, args); };
+console.error = (...args) => { const f = filterStyledArgs(args); if (f.length) { appendConsoleLine('error', f.join(' ')); maybeQueueError(f.join(' ')); } origError.apply(console, args); };
 console.warn = (...args) => { const f = filterStyledArgs(args); if (f.length) appendConsoleLine('warn', f.join(' ')); origWarn.apply(console, args); };
 
 // --- Console panel toggle ---
@@ -70,11 +70,19 @@ const setStatusBar = document.getElementById('setStatusBar');
 const setStatusLabel = document.getElementById('setStatusLabel');
 const setStatusSection = document.getElementById('setStatusSection');
 const setStopBtn = document.getElementById('setStopBtn');
+const errorTriggerToggle = document.getElementById('errorTriggerToggle');
 
 // --- State ---
 let ws;
 let statusEl = null;
 const toolCallEls = new Map();
+
+// --- Error trigger state ---
+let errorDebounceTimer = null;
+let pendingErrors = [];
+let errorTriggerEnabled = false;
+let lastFixerErrors = new Set();
+let fixerRunning = false;
 
 // --- Cycle tracking ---
 let cycleOrigin = null;
@@ -130,6 +138,38 @@ function checkBarMarkers(cycle) {
     }
   }
   lastCycle = cycle;
+}
+
+// --- Error trigger debounce ---
+function maybeQueueError(text) {
+  if (!errorTriggerEnabled) return;
+  if (fixerRunning) return;
+  if (text.startsWith('[fixer]') || text.startsWith('[strudel]')) return;
+  pendingErrors.push(text);
+  if (errorDebounceTimer) clearTimeout(errorDebounceTimer);
+  errorDebounceTimer = setTimeout(flushErrors, 2000);
+}
+
+function flushErrors() {
+  if (pendingErrors.length === 0) return;
+  const errorSet = new Set(pendingErrors);
+  const signature = [...errorSet].sort().join('|||');
+  const lastSignature = [...lastFixerErrors].sort().join('|||');
+  if (signature === lastSignature) {
+    console.log('[fixer] same errors as last run, skipping');
+    pendingErrors = [];
+    return;
+  }
+  lastFixerErrors = errorSet;
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    pendingErrors = [];
+    return;
+  }
+  wsSend('console_errors', { errors: [...errorSet], api_key: apiKey });
+  fixerRunning = true;
+  console.log(`[fixer] triggered with ${errorSet.size} error(s)`);
+  pendingErrors = [];
 }
 
 function getApiKey() {
@@ -194,6 +234,18 @@ apiKeyClearBtn.addEventListener('click', () => {
   saveApiKey('');
   apiKeyInput.focus();
   console.log('[api-key] removed');
+});
+
+errorTriggerToggle.addEventListener('change', () => {
+  errorTriggerEnabled = errorTriggerToggle.checked;
+  wsSend('set_error_trigger', { enabled: errorTriggerEnabled });
+  console.log(`[fixer] error trigger ${errorTriggerEnabled ? 'enabled' : 'disabled'}`);
+  if (!errorTriggerEnabled) {
+    pendingErrors = [];
+    lastFixerErrors = new Set();
+    fixerRunning = false;
+    if (errorDebounceTimer) clearTimeout(errorDebounceTimer);
+  }
 });
 
 // --- Chat UI helpers ---
@@ -404,6 +456,14 @@ function handleEvent(msg) {
     console.log(`[performer] ${msg.data.tool}(${truncated})`);
   } else if (msg.event === 'performer_tool_result') {
     console.log(`[performer] ${msg.data.tool} done`);
+  } else if (msg.event === 'fixer_tool_call') {
+    const inputStr = typeof msg.data.input === 'object' ? JSON.stringify(msg.data.input) : String(msg.data.input);
+    const truncated = inputStr.length > 120 ? inputStr.slice(0, 120) + '...' : inputStr;
+    console.log(`[fixer] ${msg.data.tool}(${truncated})`);
+  } else if (msg.event === 'fixer_tool_result') {
+    console.log(`[fixer] ${msg.data.tool} done`);
+  } else if (msg.event === 'fixer_done') {
+    fixerRunning = false;
   } else if (msg.event === 'chat_response') {
     removeStatus();
     toolCallEls.clear();

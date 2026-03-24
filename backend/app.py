@@ -11,6 +11,7 @@ load_dotenv()
 
 from backend.accent import germanise
 from backend.agent import AVAILABLE_MODELS, DEFAULT_MODEL, agent_respond
+from backend.fixer import fixer_respond, reset_fixer_state
 from backend.performer import performer_respond
 
 _selected_model: str = DEFAULT_MODEL
@@ -27,6 +28,8 @@ FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 _background_tasks: set[asyncio.Task] = set()
 _current_chat_task: asyncio.Task | None = None
 _performer_task: asyncio.Task | None = None
+_fixer_task: asyncio.Task | None = None
+_error_trigger_enabled: bool = False
 
 # Set state for performer section tracking
 _active_plan: dict | None = None
@@ -155,6 +158,34 @@ def _get_section_at_cycle(cycle: int) -> dict | None:
     return current
 
 
+async def _handle_fixer(errors: list[str], session_id: str, api_key: str) -> None:
+    """Launch the fixer agent for a batch of console errors."""
+    async def on_event(event_type: str, data: dict) -> None:
+        try:
+            await manager.send_event(f"fixer_{event_type}", data)
+        except RuntimeError:
+            logger.debug("Skipping fixer event %s — no frontend connected", event_type)
+
+    fixer_session = f"{session_id}_fixer"
+    try:
+        await fixer_respond(
+            errors,
+            fixer_session,
+            api_key=api_key,
+            on_event=on_event,
+            model=_selected_model,
+        )
+    except asyncio.CancelledError:
+        logger.info("Fixer task cancelled")
+    except Exception:
+        logger.exception("fixer_respond failed")
+
+    try:
+        await manager.send_event("fixer_done", {})
+    except RuntimeError:
+        pass
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket) -> None:
     await manager.connect(ws)
@@ -167,7 +198,9 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                 manager.resolve(data["id"], data.get("data", {}))
 
             elif msg_type == "event":
-                global _current_chat_task, _performer_task
+                global _current_chat_task, _performer_task, _fixer_task
+                global _selected_model, _selected_performer_model
+                global _error_trigger_enabled, _last_performer_section_bar
                 event = data.get("event")
                 if event == "chat_message":
                     payload = data.get("data", {})
@@ -181,20 +214,45 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                     if _current_chat_task and not _current_chat_task.done():
                         _current_chat_task.cancel()
                         _current_chat_task = None
+                    if _fixer_task and not _fixer_task.done():
+                        _fixer_task.cancel()
+                        _fixer_task = None
                 elif event == "stop_set":
                     _deactivate_set()
                 elif event == "set_model":
-                    global _selected_model
                     model = data.get("data", {}).get("model", "")
                     if model in AVAILABLE_MODELS:
                         _selected_model = model
                 elif event == "set_performer_model":
-                    global _selected_performer_model
                     model = data.get("data", {}).get("model", "")
                     if model in AVAILABLE_MODELS:
                         _selected_performer_model = model
+                elif event == "set_error_trigger":
+                    _error_trigger_enabled = data.get("data", {}).get("enabled", False)
+                    if not _error_trigger_enabled:
+                        if _fixer_task and not _fixer_task.done():
+                            _fixer_task.cancel()
+                            _fixer_task = None
+                        reset_fixer_state()
+                elif event == "console_errors":
+                    if not _error_trigger_enabled:
+                        continue
+                    # Skip if performer is active (performer self-fixes)
+                    if _performer_task and not _performer_task.done():
+                        continue
+                    errors = data.get("data", {}).get("errors", [])
+                    api_key = data.get("data", {}).get("api_key", "")
+                    if not errors or not api_key:
+                        continue
+                    if _fixer_task and not _fixer_task.done():
+                        _fixer_task.cancel()
+                    task = asyncio.create_task(
+                        _handle_fixer(errors, manager.session_id, api_key)
+                    )
+                    _fixer_task = task
+                    _background_tasks.add(task)
+                    task.add_done_callback(_background_tasks.discard)
                 elif event == "cycle_update":
-                    global _last_performer_section_bar
                     if _active_plan is None:
                         from backend.tools.set_plan import get_current_plan
                         plan = get_current_plan()

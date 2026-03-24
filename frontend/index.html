@@ -80,6 +80,12 @@ note("c a f e").sound("piano")
             <button id="apiKeySaveBtn">Save</button>
           </span>
         </label>
+        <label class="toggle-label">
+          Auto-fix errors
+          <span class="info-hint"
+            data-tooltip="When enabled, console errors automatically trigger an agent that reads the code and attempts to fix it. Tool calls appear in the console.">i</span>
+          <input type="checkbox" id="errorTriggerToggle" />
+        </label>
       </div>
       <div class="set-status-bar hidden" id="setStatusBar">
         <div class="set-status-info">
