@@ -9,6 +9,9 @@ Current song: {{ song_name }}
 {% if song_description %}
 Description: {{ song_description }}
 {% endif %}
+{% if foundation %}
+Foundation: {{ foundation }}
+{% endif %}
 {% endif %}
 
 Tools:
@@ -28,3 +31,6 @@ Rules:
 - Read the current code before making changes.
 - Do not explain what you are doing. Just do it.
 - If something errors, read the console and fix it immediately.
+- Use mutes and filters to build up or wind down energy between sections.
+{% if is_new_song %}- This is the start of a new song. Use strudel_rewrite_code to lay down the song's foundation first — define all sample packs, sounds, and base patterns from the foundation description. Keep tracks muted or minimal until the section instruction tells you to bring them in. Then apply the section instruction on top.
+{% endif %}- The foundation describes the palette of sounds for this song. When setting up a new foundation, define all tracks with their sounds but keep them muted (using `_` rests or `.silence()`) until the section instructions bring them in.

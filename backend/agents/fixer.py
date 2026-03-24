@@ -15,7 +15,6 @@ memory = MemorySaver()
 FIXER_TOOLS = {
     "strudel_read_code",
     "strudel_edit_code",
-    "strudel_rewrite_code",
     "strudel_read_console",
     "strudel_docs_search",
     "sample_search",

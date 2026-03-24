@@ -13,6 +13,7 @@ class Song(BaseModel):
     name: str
     bars: int
     description: str
+    foundation: str
     sections: list[Section]
 
 

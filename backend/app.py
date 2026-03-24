@@ -33,8 +33,9 @@ _error_trigger_enabled: bool = False
 
 # Set state for performer section tracking
 _active_plan: dict | None = None
-_bar_markers: list[dict] = []  # [{ bar, song_name, song_description, note }]
+_bar_markers: list[dict] = []  # [{ bar, song_name, song_description, foundation, note }]
 _last_performer_section_bar: int = -1
+_last_performer_song: str | None = None
 
 
 def _build_bar_markers(plan: dict) -> list[dict]:
@@ -47,6 +48,7 @@ def _build_bar_markers(plan: dict) -> list[dict]:
                 "bar": offset + section["bar"],
                 "song_name": song["name"],
                 "song_description": song["description"],
+                "foundation": song.get("foundation", ""),
                 "note": section["note"],
             })
         offset += song["bars"]
@@ -95,18 +97,20 @@ async def _handle_chat(text: str, session_id: str, api_key: str) -> None:
 
 def _activate_set(plan: dict) -> None:
     """Store the plan and build bar markers for performer section tracking."""
-    global _active_plan, _bar_markers, _last_performer_section_bar
+    global _active_plan, _bar_markers, _last_performer_section_bar, _last_performer_song
     _active_plan = plan
     _bar_markers = _build_bar_markers(plan)
     _last_performer_section_bar = -1
+    _last_performer_song = None
 
 
 def _deactivate_set() -> None:
     """Clear set state and cancel performer if running."""
-    global _active_plan, _bar_markers, _last_performer_section_bar, _performer_task
+    global _active_plan, _bar_markers, _last_performer_section_bar, _last_performer_song, _performer_task
     _active_plan = None
     _bar_markers = []
     _last_performer_section_bar = -1
+    _last_performer_song = None
     if _performer_task and not _performer_task.done():
         _performer_task.cancel()
         _performer_task = None
@@ -114,11 +118,16 @@ def _deactivate_set() -> None:
 
 async def _handle_performer_section(marker: dict, session_id: str, api_key: str) -> None:
     """Launch the performer agent for a new section."""
+    global _last_performer_song
+
     async def on_event(event_type: str, data: dict) -> None:
         try:
             await manager.send_event(f"performer_{event_type}", data)
         except RuntimeError:
             logger.debug("Skipping performer event %s — no frontend connected", event_type)
+
+    is_new_song = _last_performer_song != marker["song_name"]
+    _last_performer_song = marker["song_name"]
 
     prompt_vars = {
         "title": _active_plan["title"],
@@ -127,6 +136,8 @@ async def _handle_performer_section(marker: dict, session_id: str, api_key: str)
         "instructions": _active_plan.get("instructions", ""),
         "song_name": marker["song_name"],
         "song_description": marker["song_description"],
+        "foundation": marker.get("foundation", ""),
+        "is_new_song": is_new_song,
     }
 
     instruction = marker["note"]
