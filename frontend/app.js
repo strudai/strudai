@@ -199,11 +199,9 @@ settingsBtn.addEventListener('click', () => {
   const open = settingsDrawer.hasAttribute('data-open');
   if (open) {
     settingsDrawer.removeAttribute('data-open');
-    settingsDrawer.style.display = 'none';
     settingsBtn.classList.remove('active');
   } else {
     settingsDrawer.setAttribute('data-open', '');
-    settingsDrawer.style.display = 'flex';
     settingsBtn.classList.add('active');
   }
 });
