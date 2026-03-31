@@ -74,11 +74,17 @@ const setPlanBtn = document.getElementById('setPlanBtn');
 const setPlanOverlay = document.getElementById('setPlanOverlay');
 const setPlanBody = document.getElementById('setPlanBody');
 const errorTriggerToggle = document.getElementById('errorTriggerToggle');
+const usageValue = document.getElementById('usageValue');
 
 // --- State ---
 let ws;
 let statusEl = null;
 const toolCallEls = new Map();
+
+// --- Usage tracking ---
+let totalInputTokens = 0;
+let totalOutputTokens = 0;
+let totalCost = 0;
 
 // --- Error trigger state ---
 let errorDebounceTimer = null;
@@ -180,6 +186,22 @@ function esc(s) {
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
+}
+
+function updateUsageDisplay() {
+  const tokens = totalInputTokens + totalOutputTokens;
+  if (totalCost > 0) {
+    usageValue.textContent = `${tokens.toLocaleString()} tokens (~$${totalCost.toFixed(4)})`;
+  } else {
+    usageValue.textContent = `${tokens.toLocaleString()} tokens`;
+  }
+}
+
+function handleUsageEvent(data) {
+  totalInputTokens += data.input_tokens || 0;
+  totalOutputTokens += data.output_tokens || 0;
+  totalCost += data.cost || 0;
+  updateUsageDisplay();
 }
 
 function checkBarMarkers(cycle) {
@@ -296,6 +318,7 @@ errorTriggerToggle.addEventListener('change', () => {
     if (errorDebounceTimer) clearTimeout(errorDebounceTimer);
   }
 });
+
 
 // --- Chat UI helpers ---
 function setAgentBusy(busy) {
@@ -516,6 +539,8 @@ function handleEvent(msg) {
     console.log(`[fixer] ${msg.data.tool}(${truncated})`);
   } else if (msg.event === 'fixer_tool_result') {
     console.log(`[fixer] ${msg.data.tool} done`);
+  } else if (msg.event === 'agent_usage' || msg.event === 'performer_usage' || msg.event === 'fixer_usage') {
+    handleUsageEvent(msg.data);
   } else if (msg.event === 'fixer_done') {
     fixerRunning = false;
   } else if (msg.event === 'chat_response') {

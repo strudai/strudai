@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -10,14 +11,18 @@ from fastapi.staticfiles import StaticFiles
 load_dotenv()
 
 from backend.accent import germanise
-from backend.agents import AVAILABLE_MODELS, DEFAULT_MODEL, agent_respond
-from backend.agents import fixer_respond, reset_fixer_state
-from backend.agents import performer_respond
+from backend.agents import (
+    AVAILABLE_MODELS,
+    DEFAULT_MODEL,
+    chat_respond,
+    fixer_respond,
+    performer_respond,
+)
+from backend.tools import registry
+from backend.connection import manager
 
 _selected_model: str = DEFAULT_MODEL
 _selected_performer_model: str = DEFAULT_MODEL
-from backend.tools import registry
-from backend.connection import manager
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +35,13 @@ _current_chat_task: asyncio.Task | None = None
 _performer_task: asyncio.Task | None = None
 _fixer_task: asyncio.Task | None = None
 _error_trigger_enabled: bool = False
+
+# Fixer loop-prevention state
+_fixer_attempt_count: int = 0
+_fixer_last_errors: set[str] = set()
+_fixer_last_run: float = 0.0
+_FIXER_MAX_ATTEMPTS = 3
+_FIXER_COOLDOWN = 5.0
 
 # Set state for performer section tracking
 _active_plan: dict | None = None
@@ -80,7 +92,7 @@ async def _handle_chat(text: str, session_id: str, api_key: str) -> None:
         code = await registry.execute("strudel_read_code")
         current_code = code.get("code", "")
         text = f"[Current code in editor]\n```\n{current_code}\n```\n\n{text}"
-        response_text = await agent_respond(text, session_id, api_key=api_key, on_event=on_event, model=_selected_model)
+        response_text = await chat_respond(text, session_id, api_key=api_key, on_event=on_event, model=_selected_model)
     except asyncio.CancelledError:
         logger.info("Agent task cancelled")
         return
@@ -169,27 +181,59 @@ def _get_section_at_cycle(cycle: int) -> dict | None:
     return current
 
 
+def __reset_fixer_state() -> None:
+    global _fixer_attempt_count, _fixer_last_errors, _fixer_last_run
+    _fixer_attempt_count = 0
+    _fixer_last_errors = set()
+    _fixer_last_run = 0.0
+
+
+def _should_run_fixer(errors: list[str]) -> bool:
+    """Check cooldown and dedup. Returns True if the fixer should run."""
+    global _fixer_attempt_count, _fixer_last_errors, _fixer_last_run
+
+    now = time.monotonic()
+    if now - _fixer_last_run < _FIXER_COOLDOWN:
+        logger.info("Fixer skipped — cooldown active")
+        return False
+
+    error_set = set(errors)
+    if error_set == _fixer_last_errors:
+        _fixer_attempt_count += 1
+        if _fixer_attempt_count >= _FIXER_MAX_ATTEMPTS:
+            logger.warning("Fixer giving up after %d attempts on the same errors", _FIXER_MAX_ATTEMPTS)
+            return False
+    else:
+        _fixer_attempt_count = 1
+        _fixer_last_errors = error_set
+
+    return True
+
+
 async def _handle_fixer(errors: list[str], session_id: str, api_key: str) -> None:
     """Launch the fixer agent for a batch of console errors."""
+    global _fixer_last_run
+
+    if not _should_run_fixer(errors):
+        return
+
     async def on_event(event_type: str, data: dict) -> None:
         try:
             await manager.send_event(f"fixer_{event_type}", data)
         except RuntimeError:
             logger.debug("Skipping fixer event %s — no frontend connected", event_type)
 
-    fixer_session = f"{session_id}_fixer"
     try:
         await fixer_respond(
-            errors,
-            fixer_session,
-            api_key=api_key,
-            on_event=on_event,
-            model=_selected_model,
+            errors, f"{session_id}_fixer",
+            api_key=api_key, on_event=on_event, model=_selected_model,
         )
     except asyncio.CancelledError:
         logger.info("Fixer task cancelled")
     except Exception:
         logger.exception("fixer_respond failed")
+
+    _fixer_last_run = time.monotonic()
 
     try:
         await manager.send_event("fixer_done", {})
@@ -244,7 +288,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                         if _fixer_task and not _fixer_task.done():
                             _fixer_task.cancel()
                             _fixer_task = None
-                        reset_fixer_state()
+                        _reset_fixer_state()
                 elif event == "console_errors":
                     if not _error_trigger_enabled:
                         continue

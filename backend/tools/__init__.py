@@ -8,5 +8,6 @@ from backend.tools import docs_search  # noqa: F401
 from backend.tools import web_search  # noqa: F401
 from backend.tools import sample_search  # noqa: F401
 from backend.tools import set_plan  # noqa: F401
+from backend.tools import verify_fix  # noqa: F401
 
 __all__ = ["registry"]
