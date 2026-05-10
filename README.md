@@ -1,4 +1,4 @@
-# StrudelGPT
+# StrudAI
 
 An AI assistant for [Strudel](https://strudel.cc/), the browser-based live coding music platform. Chat with "Hans Strudel" to create, modify, and understand Strudel patterns.
 
@@ -19,6 +19,7 @@ Fully client-side — no backend. The app embeds a `<strudel-editor>` web compon
 
 | Tool | Description |
 |------|-------------|
+| `strudel_edit_code` | Search-and-replace a section of the editor code |
 | `strudel_rewrite_code` | Replace the entire editor contents and evaluate |
 
 ### Settings
@@ -49,7 +50,7 @@ src/
 knowledge/
   build.py              Run full pipeline (fetch + compress)
   fetch.py              Fetch docs + community examples
-  compress.py           Compress into ~3k token reference
+  compress.py           Compress into ~10k token reference
   compressed.md         Generated reference (bundled at build time)
 index.html              Vite entry point + Strudel editor
 ```
@@ -79,3 +80,9 @@ Requires `ANTHROPIC_API_KEY` env var (or `.env` file) for compression.
 - **Frontend**: React, TypeScript, Vite, Tailwind CSS
 - **API**: Anthropic SDK (client-side, user-provided key)
 - **Editor**: Strudel REPL web component via CDN
+
+## Thank you
+
+This project is a thin wrapper around [Strudel](https://strudel.cc/) — a beautiful live coding environment by Alex McLean and contributors that runs entirely in the browser. If you enjoy it, consider [supporting Tidal Cycles](https://opencollective.com/tidalcycles).
+
+To instruct the model on how to make strudel code, I pull some examples. Community examples sourced from [awesome-strudel](https://github.com/terryds/awesome-strudel) and [strudel-songs-collection](https://github.com/eefano/strudel-songs-collection).

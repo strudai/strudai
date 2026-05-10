@@ -6,6 +6,7 @@ dist/
 .DS_Store
 
 knowledge/raw/
+__pycache__/
 
 .claude/
 **/CLAUDE.md

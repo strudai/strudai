@@ -5,7 +5,7 @@ import { MessageBubble } from "./MessageBubble";
 import { SettingsDrawer } from "./SettingsDrawer";
 import { streamChat } from "../agent/api";
 import { STATIC_PROMPT } from "../agent/system-prompt";
-import { TOOLS, executeTool } from "../agent/tools";
+import { getActiveTools, executeTool } from "../agent/tools";
 import * as store from "../store";
 
 interface ChatPanelProps {
@@ -105,6 +105,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     // Snapshot editor code once — tool calls may change it during the loop
     const editorCode = editorRef.current?.getCode() ?? "";
     const system = buildSystem(editorCode);
+    const tools = getActiveTools(store.getToolToggles());
     let continueLoop = true;
 
     while (continueLoop) {
@@ -117,7 +118,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
         model: store.getModel(),
         system,
         apiKey,
-        tools: TOOLS,
+        tools,
         signal,
         onText: (chunk) => {
           streamingText += chunk;
@@ -154,6 +155,21 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
         { role: "assistant", content: result.content },
       ];
 
+      // Display server-side tool calls (e.g. web_search runs on Anthropic's side)
+      for (const block of result.content) {
+        if (block.type === "server_tool_use" && block.name === "web_search") {
+          const query = (block.input as { query?: string }).query ?? "";
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "tool" as const,
+              toolName: "web_search",
+              content: query ? `Searched: ${query}` : "Searching the web...",
+            },
+          ]);
+        }
+      }
+
       if (result.stopReason === "tool_use") {
         // Execute tool calls
         const toolUseBlocks = result.content.filter(
@@ -171,7 +187,9 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
             {
               role: "tool" as const,
               toolName: block.name,
-              content: block.name === "strudel_rewrite_code" ? "Rewriting code..." : block.name,
+              content: block.name === "strudel_rewrite_code" ? "Rewriting code..."
+                : block.name === "strudel_edit_code" ? "Editing code..."
+                : block.name,
             },
           ]);
 
@@ -189,7 +207,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
             if (last.role === "tool" && last.toolName === block.name) {
               updated[updated.length - 1] = {
                 ...last,
-                content: block.name === "strudel_rewrite_code" ? "Code updated" : resultStr,
+                content: (block.name === "strudel_rewrite_code" || block.name === "strudel_edit_code") ? "Code updated" : resultStr,
               };
             }
             return updated;
@@ -221,27 +239,29 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     return (
       <button
         onClick={() => setVisible(true)}
-        className="chat-toggle visible"
+        className="absolute top-[calc(1rem-16px)] right-[calc(1rem-5px)] w-14 h-14 z-20 rounded-full bg-transparent border-0 p-0 cursor-pointer flex items-center justify-center transition-[transform,opacity] duration-300 hover:scale-110"
       >
-        <img src="/hans_logo.svg" alt="Chat" className="chat-toggle-icon" />
+        <img src="/hans_logo.svg" alt="Chat" className="w-full h-full object-contain" />
       </button>
     );
   }
 
+  const sharedBtn = "bg-transparent border-0 cursor-pointer transition-colors duration-300";
+
   return (
-    <div className="chat-panel">
+    <div className="absolute top-4 right-4 bottom-4 w-[360px] z-20 flex flex-col bg-[var(--surface)] border border-[var(--surface-border)] rounded-[var(--radius)] shadow-[var(--shadow)]">
       {/* Header */}
-      <div className="chat-header">
+      <div className="flex justify-between items-center pt-1 pr-1 pb-0 pl-2">
         <button
           onClick={() => setSettingsOpen(!settingsOpen)}
-          className={`settings-btn${settingsOpen ? " active" : ""}`}
+          className={`${sharedBtn} text-[1.1rem] p-1 ${settingsOpen ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
           title="Settings"
         >
           &#x2699;
         </button>
         <button
           onClick={() => setVisible(false)}
-          className="chat-close"
+          className={`${sharedBtn} text-2xl leading-none px-3 py-2 text-[var(--text-muted)] hover:text-[var(--text-primary)]`}
         >
           &times;
         </button>
@@ -255,16 +275,16 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       />
 
       {/* Messages */}
-      <div className="chat-messages">
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2 rounded-t-[var(--radius)]">
         {messages.map((msg, i) => (
           <MessageBubble key={i} message={msg} />
         ))}
         {isStreaming && messages[messages.length - 1]?.content === "" && (
-          <div className="chat-message status">
-            <span className="dot-pulse">
-              <span />
-              <span />
-              <span />
+          <div className="self-start flex items-center gap-2 px-3 py-[0.35rem] text-[0.8rem] text-[var(--text-muted)]">
+            <span className="inline-flex gap-[3px]">
+              <span className="w-[5px] h-[5px] rounded-full bg-[var(--text-muted)] animate-dot-pulse" />
+              <span className="w-[5px] h-[5px] rounded-full bg-[var(--text-muted)] animate-dot-pulse [animation-delay:0.2s]" />
+              <span className="w-[5px] h-[5px] rounded-full bg-[var(--text-muted)] animate-dot-pulse [animation-delay:0.4s]" />
             </span>
           </div>
         )}
@@ -272,7 +292,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       </div>
 
       {/* Input */}
-      <div className="chat-input-area">
+      <div className="flex p-3 gap-2 border-t border-[var(--surface-border)] rounded-b-[var(--radius)]">
         <input
           type="text"
           value={input}
@@ -282,15 +302,20 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
             hasApiKey ? "Describe a pattern..." : "Set API key first..."
           }
           disabled={!hasApiKey}
+          className="flex-1 min-w-0 px-3 py-2 rounded-md text-[0.9rem] outline-none bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--input-focus-border)]"
         />
         {isStreaming ? (
-          <button onClick={handleStop} className="stop-btn">
+          <button
+            onClick={handleStop}
+            className="px-4 py-2 rounded-md cursor-pointer text-[0.9rem] transition-colors duration-300 bg-[var(--input-bg)] border border-[var(--surface-border)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--text-primary)]"
+          >
             Stop
           </button>
         ) : (
           <button
             onClick={handleSend}
             disabled={!input.trim() || !hasApiKey}
+            className="px-4 py-2 rounded-md cursor-pointer text-[0.9rem] border-0 transition-colors duration-300 bg-[var(--accent)] text-[var(--text-primary)] enabled:hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Send
           </button>
