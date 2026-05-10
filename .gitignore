@@ -5,5 +5,7 @@ dist/
 .env.*
 .DS_Store
 
+knowledge/raw/
+
 .claude/
 **/CLAUDE.md
