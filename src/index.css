@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+:root {
+  /* Background */
+  --bg-primary: #1a1a2e;
+  --bg-secondary: #16213e;
+
+  /* Surface */
+  --surface: rgba(22, 33, 62, 0.95);
+  --surface-border: rgba(255, 255, 255, 0.08);
+
+  /* Text */
+  --text-primary: #e8e8f0;
+  --text-secondary: #a0a0b8;
+  --text-muted: #666680;
+
+  /* Accent */
+  --accent: #7c5cbf;
+  --accent-hover: #9474d4;
+
+  /* Chat bubbles */
+  --bubble-user: #7c5cbf;
+  --bubble-user-text: #f0f0f8;
+  --bubble-assistant: rgba(255, 255, 255, 0.08);
+  --bubble-assistant-text: #e8e8f0;
+
+  /* Input */
+  --input-bg: rgba(255, 255, 255, 0.06);
+  --input-border: rgba(255, 255, 255, 0.12);
+  --input-focus-border: var(--accent);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  background: #000;
+}
+
+body {
+  background: transparent;
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, sans-serif;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Strudel editor fills its container */
+strudel-editor {
+  display: block;
+  position: absolute;
+  inset: 0;
+  --background: transparent;
+  --foreground: #00ff41;
+  --caret: #00ff41;
+  --gutterForeground: #00ff4144;
+}
+
+strudel-editor .cm-editor {
+  height: 100% !important;
+  background: transparent !important;
+}
+
+strudel-editor .cm-editor .cm-gutters {
+  background: transparent !important;
+}
+
+strudel-editor .cm-editor .cm-scroller {
+  overflow: auto !important;
+}
+
+strudel-editor .cm-editor .cm-line * {
+  color: #00ff41 !important;
+}
+
+strudel-editor .cm-editor .ͼd,
+strudel-editor .cm-editor .ͼe,
+strudel-editor .cm-editor .ͼc {
+  color: #90ffb0 !important;
+}
