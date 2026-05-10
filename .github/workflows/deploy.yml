@@ -28,7 +28,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           source: "dist/,compose.yml,docker/"
-          target: "/tmp/strudal/"
+          target: "/tmp/strudai/"
 
       - name: Deploy
         uses: appleboy/ssh-action@v1.0.3
@@ -38,11 +38,11 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            sudo rm -rf /strudal/dist /strudal/docker /strudal/compose.yml
-            sudo mv /tmp/strudal/dist /strudal/dist
-            sudo mv /tmp/strudal/docker /strudal/docker
-            sudo mv /tmp/strudal/compose.yml /strudal/compose.yml
-            sudo rm -rf /tmp/strudal
-            cd /strudal
+            sudo rm -rf /strudai/dist /strudai/docker /strudai/compose.yml
+            sudo mv /tmp/strudai/dist /strudai/dist
+            sudo mv /tmp/strudai/docker /strudai/docker
+            sudo mv /tmp/strudai/compose.yml /strudai/compose.yml
+            sudo rm -rf /tmp/strudai
+            cd /strudai
             sudo docker-compose -f compose.yml down
             sudo docker-compose -f compose.yml up -d
