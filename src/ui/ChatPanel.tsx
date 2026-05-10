@@ -84,7 +84,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     }
   }
 
-  function buildSystem(): Anthropic.TextBlockParam[] {
+  function buildSystem(code: string): Anthropic.TextBlockParam[] {
     const blocks: Anthropic.TextBlockParam[] = [
       {
         type: "text",
@@ -92,7 +92,6 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
         cache_control: { type: "ephemeral" },
       },
     ];
-    const code = editorRef.current?.getCode() ?? "";
     if (code) {
       blocks.push({
         type: "text",
@@ -103,6 +102,9 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
   }
 
   async function runAgentLoop(apiKey: string, signal: AbortSignal) {
+    // Snapshot editor code once — tool calls may change it during the loop
+    const editorCode = editorRef.current?.getCode() ?? "";
+    const system = buildSystem(editorCode);
     let continueLoop = true;
 
     while (continueLoop) {
@@ -113,7 +115,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       const result = await streamChat({
         messages: apiMessagesRef.current,
         model: store.getModel(),
-        system: buildSystem(),
+        system,
         apiKey,
         tools: TOOLS,
         signal,

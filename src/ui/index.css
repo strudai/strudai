@@ -325,6 +325,26 @@ strudel-editor .cm-editor .ͼc {
   align-self: flex-start;
 }
 
+.chat-message.tool-call {
+  background: rgba(124, 92, 191, 0.12);
+  border: 1px solid rgba(124, 92, 191, 0.25);
+  color: var(--text-secondary);
+  align-self: flex-start;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.75rem;
+  font-family: monospace;
+}
+
+.chat-message.tool-call .tool-name {
+  color: var(--accent-hover);
+  font-weight: 600;
+}
+
+.chat-message.tool-call .tool-status {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .chat-message.status {
   background: transparent;
   color: var(--text-muted);
