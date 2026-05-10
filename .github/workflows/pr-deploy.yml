@@ -1,0 +1,47 @@
+name: PR Deploy
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Build
+        run: npm install && npm run build
+
+      # Copy built files to VM under /dev.strudai/
+      - name: Upload dist
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "dist/"
+          target: "/tmp/strudai-dev/"
+
+      - name: Deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            sudo rm -rf /strudai/dist-dev
+            sudo mv /tmp/strudai-dev/dist /strudai/dist-dev
+            sudo rm -rf /tmp/strudai-dev
+            # Reload nginx to pick up new files (no restart needed)
+            cd /strudai
+            sudo docker-compose -f compose.yml exec -T nginx nginx -s reload

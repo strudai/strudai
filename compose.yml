@@ -12,6 +12,10 @@ services:
         target: /usr/share/nginx/html
         read_only: true
       - type: bind
+        source: ./dist-dev
+        target: /usr/share/nginx/dev-html
+        read_only: true
+      - type: bind
         source: ./docker/nginx/default.conf
         target: /etc/nginx/conf.d/default.conf
         read_only: true
