@@ -44,4 +44,4 @@ jobs:
             sudo mv /tmp/strudal/compose.yml /strudal/compose.yml
             sudo rm -rf /tmp/strudal
             cd /strudal
-            sudo docker-compose up -d --pull always --remove-orphans
+            sudo docker-compose -f compose.yml up -d
