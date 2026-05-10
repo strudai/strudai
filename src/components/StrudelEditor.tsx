@@ -1,16 +1,21 @@
-import { useRef, useImperativeHandle, forwardRef } from "react";
+import { useImperativeHandle, forwardRef } from "react";
 import type { StrudelEditorElement, StrudelEditorHandle } from "../types";
 
+/**
+ * The <strudel-editor> element lives in index.html (outside React)
+ * because the web component reads its initial code from an HTML comment
+ * child, which React cannot produce. This component simply exposes
+ * getCode/setCode by grabbing the element by ID.
+ */
 export const StrudelEditor = forwardRef<StrudelEditorHandle>(
   function StrudelEditor(_props, ref) {
-    const editorRef = useRef<StrudelEditorElement>(null);
-
     useImperativeHandle(ref, () => ({
       getCode() {
-        return editorRef.current?.editor?.code ?? "";
+        const el = document.getElementById("strudelEditor") as StrudelEditorElement | null;
+        return el?.editor?.code ?? "";
       },
       setCode(code: string) {
-        const el = editorRef.current;
+        const el = document.getElementById("strudelEditor") as StrudelEditorElement | null;
         if (el?.editor) {
           el.editor.setCode(code);
           el.editor.evaluate();
@@ -18,14 +23,6 @@ export const StrudelEditor = forwardRef<StrudelEditorHandle>(
       },
     }));
 
-    return (
-      <div className="h-full w-full">
-        {/* @ts-expect-error strudel-editor is a custom element loaded from CDN */}
-        <strudel-editor ref={editorRef} id="strudelEditor">
-          {`note("c a f e").sound("piano")`}
-          {/* @ts-expect-error closing custom element */}
-        </strudel-editor>
-      </div>
-    );
+    return null;
   }
 );
