@@ -14,4 +14,8 @@ Strudel basics:
 - Common functions: .speed(), .gain(), .delay(), .room(), .pan(), .lpf(), .hpf(), .stack(), .cat(), .fast(), .slow(), .rev()
 - Samples are loaded from CDN (piano, drum machines, synths, etc.)
 - Example: note("c a f e").sound("piano")
-- Example: s("bd sd cp sd").fast(2)`;
+- Example: s("bd sd cp sd").fast(2)
+
+Tools for code:
+- strudel_rewrite_code — replace the entire editor code. Use when writing from scratch or rewriting most of the code.
+- Always use the tool to write code into the editor. Never just paste code in the chat.`;
