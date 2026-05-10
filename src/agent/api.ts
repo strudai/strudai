@@ -17,7 +17,7 @@ function getClient(apiKey: string): Anthropic {
 export interface StreamChatParams {
   messages: Anthropic.MessageParam[];
   model: string;
-  systemPrompt: string;
+  system: Anthropic.TextBlockParam[];
   apiKey: string;
   tools?: Anthropic.Tool[];
   onText: (chunk: string) => void;
@@ -35,7 +35,7 @@ export interface ChatResult {
 export async function streamChat({
   messages,
   model,
-  systemPrompt,
+  system,
   apiKey,
   tools,
   onText,
@@ -47,7 +47,7 @@ export async function streamChat({
   const stream = anthropic.messages.stream({
     model,
     max_tokens: 4096,
-    system: systemPrompt,
+    system,
     messages,
     ...(tools && tools.length > 0 ? { tools } : {}),
   });

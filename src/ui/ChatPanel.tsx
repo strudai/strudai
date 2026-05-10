@@ -4,7 +4,7 @@ import type { Message, StrudelEditorHandle } from "../agent/types";
 import { MessageBubble } from "./MessageBubble";
 import { SettingsDrawer } from "./SettingsDrawer";
 import { streamChat } from "../agent/api";
-import { SYSTEM_PROMPT } from "../agent/system-prompt";
+import { STATIC_PROMPT } from "../agent/system-prompt";
 import { TOOLS, executeTool } from "../agent/tools";
 import * as store from "../store";
 
@@ -84,13 +84,27 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     }
   }
 
-  function buildSystemPrompt(): string {
-    const code = editorRef.current?.getCode() ?? "";
-    if (!code) return SYSTEM_PROMPT;
-    return `${SYSTEM_PROMPT}\n\n[Current code in editor]\n\`\`\`\n${code}\n\`\`\``;
+  function buildSystem(code: string): Anthropic.TextBlockParam[] {
+    const blocks: Anthropic.TextBlockParam[] = [
+      {
+        type: "text",
+        text: STATIC_PROMPT,
+        cache_control: { type: "ephemeral" },
+      },
+    ];
+    if (code) {
+      blocks.push({
+        type: "text",
+        text: `[Current code in editor]\n\`\`\`\n${code}\n\`\`\``,
+      });
+    }
+    return blocks;
   }
 
   async function runAgentLoop(apiKey: string, signal: AbortSignal) {
+    // Snapshot editor code once — tool calls may change it during the loop
+    const editorCode = editorRef.current?.getCode() ?? "";
+    const system = buildSystem(editorCode);
     let continueLoop = true;
 
     while (continueLoop) {
@@ -101,7 +115,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       const result = await streamChat({
         messages: apiMessagesRef.current,
         model: store.getModel(),
-        systemPrompt: buildSystemPrompt(),
+        system,
         apiKey,
         tools: TOOLS,
         signal,

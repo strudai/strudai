@@ -60,20 +60,19 @@ The agent loads a compressed Strudel reference bundled at build time. To rebuild
 
 ```bash
 cd knowledge
-pip install anthropic python-dotenv
-python build.py
+uv run --with anthropic --with python-dotenv python build.py
 ```
 
 Or run individual steps:
 
 ```bash
-python fetch.py              # fetch docs + examples to raw/
-python fetch.py docs         # fetch only docs
-python fetch.py examples     # fetch only examples
-python compress.py           # compress into compressed.md
+uv run python fetch.py              # fetch docs + examples to raw/
+uv run python fetch.py docs         # fetch only docs
+uv run python fetch.py examples     # fetch only examples
+uv run --with anthropic --with python-dotenv python compress.py  # compress into compressed.md
 ```
 
-Requires `ANTHROPIC_API_KEY` env var for compression.
+Requires `ANTHROPIC_API_KEY` env var (or `.env` file) for compression.
 
 ## Stack
 

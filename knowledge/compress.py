@@ -46,9 +46,18 @@ most common patterns — drums, bass, melody, arrangement.
 - Note any consistent habits: use of let/const, stack() vs cat(), how effects \
 are chained, how songs are arranged into sections.
 
+## Part 3: Genre Sketches
+Provide minimal style sketches for these genres: ambient, house, techno, \
+dnb, hip-hop, breakbeat, dub, synthwave, idm, minimal.
+For each genre, write:
+- The genre name as a heading
+- 1-2 sentences on the key characteristics (tempo, rhythmic feel, typical sounds)
+- One short code snippet (2-6 lines) showing a representative pattern
+Keep each genre sketch compact — this is a quick reference, not a tutorial.
+
 General rules:
 - Output ONLY the compressed reference, no preamble or explanation.
-- Target ~3000 tokens total (~1500 API reference, ~1500 style guide).
+- Target ~10000 tokens total (~2000 API reference, ~4000 style guide, ~4000 genre sketches).
 - Use ```strudel``` fenced blocks for code examples.
 """
 
@@ -74,7 +83,7 @@ def compress() -> str:
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     response = client.messages.create(
         model="claude-sonnet-4-20250514",
-        max_tokens=5000,
+        max_tokens=12000,
         system=COMPRESS_PROMPT,
         messages=[{"role": "user", "content": message}],
     )
