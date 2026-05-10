@@ -57,17 +57,11 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       return;
     }
 
-    // Prepend current Strudel code to user message
-    const code = editorRef.current?.getCode() ?? "";
-    const fullText = code
-      ? `[Current code in editor]\n\`\`\`\n${code}\n\`\`\`\n\n${text}`
-      : text;
-
     // Add user message to both display and API messages
-    setMessages((prev) => [...prev, { role: "user", content: fullText }]);
+    setMessages((prev) => [...prev, { role: "user", content: text }]);
     apiMessagesRef.current = [
       ...apiMessagesRef.current,
-      { role: "user", content: fullText },
+      { role: "user", content: text },
     ];
     setInput("");
     setIsStreaming(true);
@@ -90,6 +84,12 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     }
   }
 
+  function buildSystemPrompt(): string {
+    const code = editorRef.current?.getCode() ?? "";
+    if (!code) return SYSTEM_PROMPT;
+    return `${SYSTEM_PROMPT}\n\n[Current code in editor]\n\`\`\`\n${code}\n\`\`\``;
+  }
+
   async function runAgentLoop(apiKey: string, signal: AbortSignal) {
     let continueLoop = true;
 
@@ -101,7 +101,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       const result = await streamChat({
         messages: apiMessagesRef.current,
         model: store.getModel(),
-        systemPrompt: SYSTEM_PROMPT,
+        systemPrompt: buildSystemPrompt(),
         apiKey,
         tools: TOOLS,
         signal,
