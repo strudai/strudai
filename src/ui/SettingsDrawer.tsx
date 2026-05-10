@@ -17,6 +17,8 @@ export function SettingsDrawer({
   const [saved, setSaved] = useState(!!store.getApiKey());
   const [model, setModel] = useState(store.getModel());
   const [models, setModels] = useState<ModelOption[]>([]);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "ok" | "fail">("idle");
+  const [saveError, setSaveError] = useState<string>("");
 
   useEffect(() => {
     store.setModel(model);
@@ -48,17 +50,30 @@ export function SettingsDrawer({
     };
   }, [saved]);
 
-  function handleSave() {
-    if (!apiKey.trim()) return;
-    store.saveApiKey(apiKey.trim());
+  async function handleSave() {
+    const key = apiKey.trim();
+    if (!key) return;
+    setSaveState("saving");
+    setSaveError("");
+    store.saveApiKey(key);
     setSaved(true);
-    onApiKeyChange(apiKey.trim());
+    onApiKeyChange(key);
+    try {
+      await listModels(key);
+      setSaveState("ok");
+    } catch (err) {
+      setSaveState("fail");
+      setSaveError(err instanceof Error ? err.message : "Request failed");
+    }
+    setTimeout(() => setSaveState("idle"), 2500);
   }
 
   function handleClear() {
     store.clearApiKey();
     setApiKey("");
     setSaved(false);
+    setSaveState("idle");
+    setSaveError("");
     onApiKeyChange(null);
   }
 
@@ -111,9 +126,14 @@ export function SettingsDrawer({
             />
             <button
               onClick={handleSave}
-              className="api-key-save"
+              className={`api-key-save ${saveState}`}
+              disabled={saveState === "saving"}
+              title={saveState === "fail" ? saveError : undefined}
             >
-              Save
+              {saveState === "saving" ? "..."
+                : saveState === "ok" ? "Saved ✓"
+                : saveState === "fail" ? "Invalid"
+                : "Save"}
             </button>
           </span>
         </label>
@@ -121,7 +141,8 @@ export function SettingsDrawer({
         <label>
           <span>Usage</span>
           <span className="usage-value">
-            {(usage.inputTokens + usage.outputTokens).toLocaleString()} tokens
+            <span>{usage.inputTokens.toLocaleString()} in</span>
+            <span>{usage.outputTokens.toLocaleString()} out</span>
           </span>
         </label>
       </div>

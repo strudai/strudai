@@ -290,6 +290,22 @@ strudel-editor .cm-editor .ͼc {
 .usage-value {
   color: var(--text-muted);
   font-size: 0.8rem;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.api-key-save.ok {
+  background: #4ade80;
+  color: #052e16;
+  transition: background 0.4s ease, color 0.4s ease;
+}
+
+.api-key-save.fail {
+  background: #f87171;
+  color: #450a0a;
+  cursor: help;
+  transition: background 0.4s ease, color 0.4s ease;
 }
 
 /* --- Chat messages --- */
