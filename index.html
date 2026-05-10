@@ -1,44 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>douwe douwe douwe</title>
-  <link rel="icon" href="/hans_logo.svg" type="image/svg+xml" />
-  <script src="https://unpkg.com/@strudel/repl@latest"></script>
-  <script>
-    const cdn = "https://strudel.b-cdn.net";
-    initStrudel({
-      prebake: () =>
-        Promise.all([
-          samples(`${cdn}/piano.json`, `${cdn}/piano/`, { prebake: true }),
-          samples(
-            `${cdn}/tidal-drum-machines.json`,
-            `${cdn}/tidal-drum-machines/machines/`,
-            { prebake: true, tag: "drum-machines" }
-          ),
-          samples(`${cdn}/vcsl.json`, `${cdn}/VCSL/`, { prebake: true }),
-          samples(`${cdn}/uzu-drumkit.json`, `${cdn}/uzu-drumkit/`, {
-            prebake: true,
-            tag: "drum-machines",
-          }),
-          samples(`${cdn}/Dirt-Samples.json`, `${cdn}/Dirt-Samples/`, {
-            prebake: true,
-          }),
-        ]),
-    });
-  </script>
-</head>
-
-<body>
-  <strudel-editor id="strudelEditor">
-    <!--
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Strudai</title>
+    <link rel="icon" href="/hans_logo.svg" type="image/svg+xml" />
+    <script src="https://unpkg.com/@strudel/repl@latest"></script>
+    <script>
+      const cdn = "https://strudel.b-cdn.net";
+      initStrudel({
+        prebake: () =>
+          Promise.all([
+            samples(`${cdn}/piano.json`, `${cdn}/piano/`, { prebake: true }),
+            samples(
+              `${cdn}/tidal-drum-machines.json`,
+              `${cdn}/tidal-drum-machines/machines/`,
+              { prebake: true, tag: "drum-machines" }
+            ),
+            samples(`${cdn}/vcsl.json`, `${cdn}/VCSL/`, { prebake: true }),
+            samples(`${cdn}/uzu-drumkit.json`, `${cdn}/uzu-drumkit/`, {
+              prebake: true,
+              tag: "drum-machines",
+            }),
+            samples(`${cdn}/Dirt-Samples.json`, `${cdn}/Dirt-Samples/`, {
+              prebake: true,
+            }),
+          ]),
+      });
+    </script>
+  </head>
+  <body>
+    <strudel-editor id="strudelEditor">
+<!--
 note("c a f e").sound("piano")
 -->
-  </strudel-editor>
-  <div id="root"></div>
-  <script type="module" src="/src/main.tsx"></script>
-</body>
-
+    </strudel-editor>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
