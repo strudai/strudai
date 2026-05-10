@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import * as store from "../store";
+import { listModels, type ModelOption } from "../agent/api";
 
 interface SettingsDrawerProps {
   open: boolean;
@@ -15,10 +16,37 @@ export function SettingsDrawer({
   const [apiKey, setApiKey] = useState(store.getApiKey() ?? "");
   const [saved, setSaved] = useState(!!store.getApiKey());
   const [model, setModel] = useState(store.getModel());
+  const [models, setModels] = useState<ModelOption[]>([]);
 
   useEffect(() => {
     store.setModel(model);
   }, [model]);
+
+  // Fetch available models when API key is present
+  useEffect(() => {
+    if (!saved) {
+      setModels([]);
+      return;
+    }
+    const key = store.getApiKey();
+    if (!key) return;
+    let cancelled = false;
+    listModels(key)
+      .then((list) => {
+        if (cancelled) return;
+        setModels(list);
+        // If saved model isn't in the list, fall back to the first option
+        if (list.length > 0 && !list.some((m) => m.id === model)) {
+          setModel(list[0].id);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setModels([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [saved]);
 
   function handleSave() {
     if (!apiKey.trim()) return;
@@ -47,10 +75,17 @@ export function SettingsDrawer({
           <select
             value={model}
             onChange={(e) => setModel(e.target.value)}
+            disabled={models.length === 0}
           >
-            <option value="claude-haiku-4-5-20251001">Haiku</option>
-            <option value="claude-sonnet-4-6">Sonnet</option>
-            <option value="claude-opus-4-6">Opus</option>
+            {models.length === 0 ? (
+              <option value={model}>{saved ? "Loading..." : "Set API key first"}</option>
+            ) : (
+              models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.displayName}
+                </option>
+              ))
+            )}
           </select>
         </label>
 

@@ -14,6 +14,19 @@ function getClient(apiKey: string): Anthropic {
   return client;
 }
 
+export interface ModelOption {
+  id: string;
+  displayName: string;
+}
+
+export async function listModels(apiKey: string): Promise<ModelOption[]> {
+  const anthropic = getClient(apiKey);
+  const page = await anthropic.models.list({ limit: 50 });
+  return page.data
+    .filter((m) => m.id.startsWith("claude-"))
+    .map((m) => ({ id: m.id, displayName: m.display_name }));
+}
+
 export interface StreamChatParams {
   messages: Anthropic.MessageParam[];
   model: string;
