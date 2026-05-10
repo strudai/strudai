@@ -1,128 +1,82 @@
 # StrudelGPT
 
-An AI assistant for [Strudel](https://strudel.cc/), the browser-based live coding music platform. Chat with "Hans Strudel" to create, modify, and understand Strudel patterns — or let the autonomous performer play a live set for you.
+An AI assistant for [Strudel](https://strudel.cc/), the browser-based live coding music platform. Chat with "Hans Strudel" to create, modify, and understand Strudel patterns.
 
 ## Quick start
 
 ```bash
-# Install dependencies
-uv sync
-
-# Run
-uv run main.py
+npm install
+npm run dev
 ```
 
-Open <http://localhost:8000>. Click the Hans Strudel icon in the top-right to open the chat panel. Set your Anthropic API key in the settings menu (gear icon) to get started.
+Open the local URL. Click the Hans Strudel icon in the top-right to open the chat panel. Set your Anthropic API key in the settings menu (gear icon) to get started.
 
 ## How it works
 
-The frontend embeds a `<strudel-editor>` web component (via `@strudel/repl` CDN) and connects to the backend over WebSocket. The editor code is automatically sent with each chat message so the agent always knows what's playing. Responses are post-processed with a light German accent.
-
-### Skills-based architecture
-
-Agent capabilities are composed from **skills** — declarative units that bundle a prompt fragment, a tool subset, and optional knowledge/examples. Skills are combined at agent-construction time to create purpose-built agents:
-
-| Agent | Skills | Purpose |
-|-------|--------|---------|
-| **Chat** | persona, coding, rewriting, debugging, docs, samples, set planning | Interactive assistant for the chat panel |
-| **Performer** | performing, coding, debugging, docs, samples | Autonomous live performer that plays a set |
-| **Fixer** | fixing, coding, docs, samples | Auto-fixes code errors detected in the console |
-
-#### Genre skills
-
-The performer agent can play in specific genres. Each genre skill provides style-specific prompt guidance and example patterns:
-
-ambient, breakbeat, dnb, dub, hip-hop, house, idm, minimal, synthwave, techno
+Fully client-side — no backend. The app embeds a `<strudel-editor>` web component (via CDN) and calls the Anthropic API directly from the browser using your API key. The editor code is injected into the system prompt with each message so the agent always knows what's playing.
 
 ### Tools
 
 | Tool | Description |
 |------|-------------|
-| `strudel_read_code` | Read current code from the editor |
-| `strudel_edit_code` | Apply targeted edits to the current code |
-| `strudel_rewrite_code` | Replace the entire editor contents |
-| `strudel_read_console` | Check for errors or logs |
-| `strudel_read_cycle` | Read the current musical cycle position |
-| `strudel_docs_search` | Search official Strudel documentation (Algolia) |
-| `sample_search` | Find sample packs and sounds by name |
-| `web_search` | General web search (DuckDuckGo) |
-| `set_plan` | Create or update a set plan for the performer |
-| `verify_fix` | Verify that a code fix resolved the error |
+| `strudel_rewrite_code` | Replace the entire editor contents and evaluate |
 
 ### Settings
 
-- **Model** — choose between Haiku (fast/cheap, default), Sonnet (balanced), or Opus (most capable)
-- **API key** — stored in your browser's `localStorage`, never on the server. Each user brings their own key.
-- **Auto-fix errors** - calls the 'fixer' persona to fix any errors that arise anytime the code is compiled
+- **Model** — choose between Haiku, Sonnet, or Opus
+- **API key** — stored in `localStorage`, never sent anywhere except the Anthropic API
 
-The settings menu also shows the token usage and estimated costs for the current session.
+The settings menu also shows token usage for the current session.
 
 ## Project structure
 
 ```text
-backend/
-  app.py              FastAPI server, WebSocket endpoint, static files
-  agents.py           LangGraph agent runner, skill composition
-  accent.py           German accent post-processing
-  connection.py       WebSocket connection manager
-  usage.py            Token usage tracking and cost estimation
-  skills/
-    base.py            Skill dataclass definition
-    __init__.py        compose() — merges skills into tool set + prompt
-    persona.py         Hans Strudel personality
-    coding.py          Code generation and rewriting
-    debugging.py       Error diagnosis
-    fixing.py          Autonomous error fixing
-    performing.py      Autonomous live performance
-    set_planning.py    Set plan management
-    docs.py            Documentation search
-    samples.py         Sample/sound search
-    genres/            Genre-specific prompt + examples (10 genres)
-  tools/               Tool implementations + registry
-  knowledge/
-    build.py           Run full pipeline (fetch + compress)
-    fetch.py           Fetch Strudel docs from Codeberg
-    fetch_examples.py  Fetch community examples from awesome-strudel
-    compress.py        Compress docs + examples into agent context
-    raw/               Source markdown files (fetched)
-    compressed.md      Generated brief reference (gitignored)
-frontend/
-  index.html          UI shell — Strudel editor + chat panel
-  app.js              WebSocket client, chat logic, settings, console
-  styles.css          Component styles
-  theme.css           Design tokens (colors, spacing)
-  public/             Static assets (logo)
-tests/                Mirrors backend structure
+src/
+  agent/
+    api.ts              Anthropic SDK streaming wrapper
+    system-prompt.ts    System prompt + bundled knowledge
+    tools.ts            Tool definitions and executor
+    types.ts            Shared types
+  ui/
+    ChatPanel.tsx       Main chat component with agentic loop
+    MessageBubble.tsx   Message rendering
+    SettingsDrawer.tsx  API key, model select, usage display
+    StrudelEditor.tsx   Editor handle (getCode/setCode)
+    index.css           All styles
+  App.tsx               Root component
+  main.tsx              Entry point
+  store.ts              localStorage wrappers
+knowledge/
+  build.py              Run full pipeline (fetch + compress)
+  fetch.py              Fetch docs + community examples
+  compress.py           Compress into ~3k token reference
+  compressed.md         Generated reference (bundled at build time)
+index.html              Vite entry point + Strudel editor
 ```
 
 ## Knowledge pipeline
 
-The agent loads a compressed reference at startup for better Strudel code generation. To build or refresh it:
+The agent loads a compressed Strudel reference bundled at build time. To rebuild it:
 
 ```bash
-# Run the full pipeline: fetch docs, fetch examples, compress
-uv run python -m backend.knowledge.build
+cd knowledge
+pip install anthropic python-dotenv
+python build.py
 ```
 
 Or run individual steps:
 
 ```bash
-uv run python -m backend.knowledge.fetch            # fetch docs from Codeberg
-uv run python -m backend.knowledge.fetch_examples    # fetch community examples
-uv run python -m backend.knowledge.compress          # compress into ~2k token reference
+python fetch.py              # fetch docs + examples to raw/
+python fetch.py docs         # fetch only docs
+python fetch.py examples     # fetch only examples
+python compress.py           # compress into compressed.md
 ```
 
-To add more knowledge, drop `.md` files into `backend/knowledge/raw/` and re-run the compress step.
-
-## Testing
-
-```bash
-uv run pytest           # run all tests
-uv run pytest -v        # verbose output
-```
+Requires `ANTHROPIC_API_KEY` env var for compression.
 
 ## Stack
 
-- **Backend**: Python 3.13, FastAPI, LangGraph, LangChain, Claude API
-- **Frontend**: Vanilla HTML/JS, Strudel embed via `@strudel/repl` CDN
-- **Tools**: uv (Python), pytest
+- **Frontend**: React, TypeScript, Vite, Tailwind CSS
+- **API**: Anthropic SDK (client-side, user-provided key)
+- **Editor**: Strudel REPL web component via CDN
