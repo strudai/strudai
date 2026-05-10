@@ -154,6 +154,21 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
         { role: "assistant", content: result.content },
       ];
 
+      // Display server-side tool calls (e.g. web_search runs on Anthropic's side)
+      for (const block of result.content) {
+        if (block.type === "server_tool_use" && block.name === "web_search") {
+          const query = (block.input as { query?: string }).query ?? "";
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "tool" as const,
+              toolName: "web_search",
+              content: query ? `Searched: ${query}` : "Searching the web...",
+            },
+          ]);
+        }
+      }
+
       if (result.stopReason === "tool_use") {
         // Execute tool calls
         const toolUseBlocks = result.content.filter(

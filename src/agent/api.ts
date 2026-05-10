@@ -19,7 +19,7 @@ export interface StreamChatParams {
   model: string;
   system: Anthropic.TextBlockParam[];
   apiKey: string;
-  tools?: Anthropic.Tool[];
+  tools?: Anthropic.ToolUnion[];
   onText: (chunk: string) => void;
   onToolCall?: (name: string, input: Record<string, unknown>) => void;
   signal?: AbortSignal;

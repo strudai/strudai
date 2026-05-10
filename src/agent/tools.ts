@@ -1,7 +1,12 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { StrudelEditorHandle } from "./types";
 
-export const TOOLS: Anthropic.Tool[] = [
+export const TOOLS: Anthropic.ToolUnion[] = [
+  {
+    type: "web_search_20260209",
+    name: "web_search",
+    max_uses: 3,
+  },
   {
     name: "strudel_rewrite_code",
     description:
