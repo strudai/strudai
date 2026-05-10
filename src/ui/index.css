@@ -308,6 +308,13 @@ strudel-editor .cm-editor .ͼc {
   transition: background 0.4s ease, color 0.4s ease;
 }
 
+/* Keep the Save button visible while showing transient state, even after saving */
+.api-key-field.has-key .api-key-save.saving,
+.api-key-field.has-key .api-key-save.ok,
+.api-key-field.has-key .api-key-save.fail {
+  display: inline-block;
+}
+
 /* --- Chat messages --- */
 
 .chat-messages {

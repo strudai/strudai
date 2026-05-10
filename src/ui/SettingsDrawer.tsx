@@ -17,6 +17,9 @@ export function SettingsDrawer({
   const [saved, setSaved] = useState(!!store.getApiKey());
   const [model, setModel] = useState(store.getModel());
   const [models, setModels] = useState<ModelOption[]>([]);
+  const [modelsState, setModelsState] = useState<"idle" | "loading" | "loaded" | "failed">(
+    store.getApiKey() ? "loading" : "idle"
+  );
   const [saveState, setSaveState] = useState<"idle" | "saving" | "ok" | "fail">("idle");
   const [saveError, setSaveError] = useState<string>("");
 
@@ -28,22 +31,26 @@ export function SettingsDrawer({
   useEffect(() => {
     if (!saved) {
       setModels([]);
+      setModelsState("idle");
       return;
     }
     const key = store.getApiKey();
     if (!key) return;
     let cancelled = false;
+    setModelsState("loading");
     listModels(key)
       .then((list) => {
         if (cancelled) return;
         setModels(list);
-        // If saved model isn't in the list, fall back to the first option
+        setModelsState("loaded");
         if (list.length > 0 && !list.some((m) => m.id === model)) {
           setModel(list[0].id);
         }
       })
       .catch(() => {
-        if (!cancelled) setModels([]);
+        if (cancelled) return;
+        setModels([]);
+        setModelsState("failed");
       });
     return () => {
       cancelled = true;
@@ -93,7 +100,11 @@ export function SettingsDrawer({
             disabled={models.length === 0}
           >
             {models.length === 0 ? (
-              <option value={model}>{saved ? "Loading..." : "Set API key first"}</option>
+              <option value={model}>
+                {modelsState === "loading" ? "Loading..."
+                  : modelsState === "failed" ? "Invalid key"
+                  : "Set API key first"}
+              </option>
             ) : (
               models.map((m) => (
                 <option key={m.id} value={m.id}>
