@@ -14,4 +14,5 @@ Tools for code:
 - strudel_rewrite_code — replace the entire editor code. Use when writing from scratch or rewriting most of the code.
 - Always use the tool to write code into the editor. Never just paste code in the chat.`;
 
-export const SYSTEM_PROMPT = `${BASE_PROMPT}\n\n${knowledge}`;
+/** Static system prompt (base + knowledge), suitable for caching. */
+export const STATIC_PROMPT = `${BASE_PROMPT}\n\n${knowledge}`;
