@@ -1,8 +1,9 @@
-name: Deploy
+name: PR Deploy
 
 on:
-  push:
+  pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened]
 
 jobs:
   build-and-deploy:
@@ -19,7 +20,7 @@ jobs:
       - name: Build
         run: npm install && npm run build
 
-      # Copy built files and compose config to VM
+      # Copy built files to VM under /dev.strudai/
       - name: Upload dist
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -27,8 +28,8 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
-          source: "dist/,compose.yml,docker/"
-          target: "/tmp/strudai/"
+          source: "dist/"
+          target: "/tmp/strudai-dev/"
 
       - name: Deploy
         uses: appleboy/ssh-action@v1.0.3
@@ -38,11 +39,9 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            sudo rm -rf /strudai/dist /strudai/docker /strudai/compose.yml
-            sudo mv /tmp/strudai/dist /strudai/dist
-            sudo mv /tmp/strudai/docker /strudai/docker
-            sudo mv /tmp/strudai/compose.yml /strudai/compose.yml
-            sudo rm -rf /tmp/strudai
+            sudo rm -rf /strudai/dist-dev
+            sudo mv /tmp/strudai-dev/dist /strudai/dist-dev
+            sudo rm -rf /tmp/strudai-dev
+            # Reload nginx to pick up new files (no restart needed)
             cd /strudai
-            sudo docker-compose -f compose.yml down
-            sudo docker-compose -f compose.yml up -d
+            sudo docker-compose -f compose.yml exec -T nginx nginx -s reload
