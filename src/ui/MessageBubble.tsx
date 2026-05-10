@@ -1,18 +1,33 @@
 import type { Message } from "../agent/types";
 
+const baseClasses =
+  "rounded-lg max-w-[90%] whitespace-pre-wrap leading-[1.4]";
+
 export function MessageBubble({ message }: { message: Message }) {
   if (message.role === "tool") {
     return (
-      <div className="chat-message tool-call">
-        <span className="tool-name">{message.toolName}</span>{" "}
-        <span className="tool-status">{message.content}</span>
+      <div
+        className={`${baseClasses} self-start px-3 py-[0.35rem] text-[0.8rem] font-mono bg-[rgba(124,92,191,0.12)] border border-[rgba(124,92,191,0.25)] text-[var(--text-secondary)]`}
+      >
+        <span className="text-[var(--accent-hover)] font-semibold">
+          {message.toolName}
+        </span>{" "}
+        <span className="text-[var(--text-muted)] italic">
+          {message.content}
+        </span>
       </div>
     );
   }
 
   const isUser = message.role === "user";
   return (
-    <div className={`chat-message ${isUser ? "user" : "assistant"}`}>
+    <div
+      className={`${baseClasses} px-3 py-2 text-[0.9rem] ${
+        isUser
+          ? "self-end bg-[var(--bubble-user)] text-[var(--bubble-user-text)]"
+          : "self-start bg-[var(--bubble-assistant)] text-[var(--bubble-assistant-text)]"
+      }`}
+    >
       {message.content}
     </div>
   );
