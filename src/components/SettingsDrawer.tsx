@@ -39,62 +39,56 @@ export function SettingsDrawer({
     return key.slice(0, 7) + "..." + key.slice(-4);
   }
 
-  if (!open) return null;
-
   return (
-    <div className="border-b border-[var(--surface-border)] px-3 py-3 text-xs space-y-2">
-      <label className="flex items-center justify-between">
-        <span className="text-[var(--text-secondary)]">Model</span>
-        <select
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded px-2 py-1 text-[var(--text-primary)] text-xs"
-        >
-          <option value="claude-haiku-4-5-20251001">Haiku</option>
-          <option value="claude-sonnet-4-6">Sonnet</option>
-          <option value="claude-opus-4-6">Opus</option>
-        </select>
-      </label>
+    <div className="settings-drawer" data-open={open ? "" : undefined}>
+      <div className="settings-drawer-inner">
+        <label>
+          <span>Model</span>
+          <select
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+          >
+            <option value="claude-haiku-4-5-20251001">Haiku</option>
+            <option value="claude-sonnet-4-6">Sonnet</option>
+            <option value="claude-opus-4-6">Opus</option>
+          </select>
+        </label>
 
-      <label className="flex items-center justify-between gap-2">
-        <span className="text-[var(--text-secondary)] shrink-0">API key</span>
-        {saved ? (
-          <span className="flex items-center gap-1">
-            <span className="text-[var(--text-muted)] font-mono">
-              {maskKey(apiKey)}
+        <label>
+          <span>API key</span>
+          <span className={`api-key-field${saved ? " has-key" : ""}`}>
+            <span className="api-key-mask">
+              {saved ? maskKey(apiKey) : ""}
             </span>
             <button
               onClick={handleClear}
-              className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              className="api-key-clear"
             >
               &times;
             </button>
-          </span>
-        ) : (
-          <span className="flex items-center gap-1">
             <input
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSave()}
               placeholder="sk-ant-..."
-              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded px-2 py-1 text-[var(--text-primary)] text-xs w-32 focus:border-[var(--accent)] outline-none"
+              className="api-key-input"
             />
             <button
               onClick={handleSave}
-              className="text-[var(--accent)] hover:text-[var(--accent-hover)] text-xs"
+              className="api-key-save"
             >
               Save
             </button>
           </span>
-        )}
-      </label>
+        </label>
 
-      <div className="flex items-center justify-between">
-        <span className="text-[var(--text-secondary)]">Usage</span>
-        <span className="text-[var(--text-muted)]">
-          {(usage.inputTokens + usage.outputTokens).toLocaleString()} tokens
-        </span>
+        <label>
+          <span>Usage</span>
+          <span className="usage-value">
+            {(usage.inputTokens + usage.outputTokens).toLocaleString()} tokens
+          </span>
+        </label>
       </div>
     </div>
   );

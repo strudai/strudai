@@ -21,6 +21,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [visible, setVisible] = useState(true);
   const [usage, setUsage] = useState({ inputTokens: 0, outputTokens: 0 });
   const [hasApiKey, setHasApiKey] = useState(!!store.getApiKey());
 
@@ -117,19 +118,34 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     abortRef.current?.abort();
   }
 
+  if (!visible) {
+    return (
+      <button
+        onClick={() => setVisible(true)}
+        className="chat-toggle visible"
+      >
+        <img src="/hans_logo.svg" alt="Chat" className="chat-toggle-icon" />
+      </button>
+    );
+  }
+
   return (
-    <div className="absolute top-4 right-4 bottom-4 w-[360px] flex flex-col bg-[var(--surface)] border border-[var(--surface-border)] rounded-xl shadow-lg z-20">
+    <div className="chat-panel">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--surface-border)]">
+      <div className="chat-header">
         <button
           onClick={() => setSettingsOpen(!settingsOpen)}
-          className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-lg"
+          className={`settings-btn${settingsOpen ? " active" : ""}`}
           title="Settings"
         >
           &#x2699;
         </button>
-        <span className="text-xs text-[var(--text-muted)]">StrudelGPT</span>
-        <div className="w-6" />
+        <button
+          onClick={() => setVisible(false)}
+          className="chat-close"
+        >
+          &times;
+        </button>
       </div>
 
       {/* Settings */}
@@ -140,20 +156,24 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       />
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-2">
+      <div className="chat-messages">
         {messages.map((msg, i) => (
           <MessageBubble key={i} message={msg} />
         ))}
         {isStreaming && messages[messages.length - 1]?.content === "" && (
-          <div className="self-start text-[var(--text-muted)] text-sm animate-pulse">
-            Thinking...
+          <div className="chat-message status">
+            <span className="dot-pulse">
+              <span />
+              <span />
+              <span />
+            </span>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}
-      <div className="flex gap-2 px-3 py-2 border-t border-[var(--surface-border)]">
+      <div className="chat-input-area">
         <input
           type="text"
           value={input}
@@ -163,20 +183,15 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
             hasApiKey ? "Describe a pattern..." : "Set API key first..."
           }
           disabled={!hasApiKey}
-          className="flex-1 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] outline-none disabled:opacity-50"
         />
         {isStreaming ? (
-          <button
-            onClick={handleStop}
-            className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg"
-          >
+          <button onClick={handleStop} className="stop-btn">
             Stop
           </button>
         ) : (
           <button
             onClick={handleSend}
             disabled={!input.trim() || !hasApiKey}
-            className="px-3 py-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Send
           </button>
