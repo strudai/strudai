@@ -17,7 +17,9 @@ Tools for code:
 - Always use a tool to write code into the editor. Never just paste code in the chat.
 
 Tools for research:
-- web_search — search the web. Use sparingly, only when you need information not in your knowledge (e.g. a specific Strudel function, an artist's signature sound, recent docs).`;
+- strudel_docs_search — search the official Strudel docs for functions, effects, syntax. Prefer this over web_search for anything Strudel-specific.
+- sample_search — find sample packs and sound names. Use before writing code that depends on a specific sample.
+- web_search — search the web. Use sparingly, only for non-Strudel info (artist's signature sound, music theory, etc.).`;
 
 /** Static system prompt (base + knowledge), suitable for caching. */
 export const STATIC_PROMPT = `${BASE_PROMPT}\n\n${knowledge}`;

@@ -20,6 +20,7 @@ export function MessageBubble({ message }: { message: Message }) {
   }
 
   const isUser = message.role === "user";
+  const isEmptyAssistant = !isUser && message.content === "";
   return (
     <div
       className={`${baseClasses} px-3 py-2 text-[0.9rem] ${
@@ -28,7 +29,15 @@ export function MessageBubble({ message }: { message: Message }) {
           : "self-start bg-[var(--bubble-assistant)] text-[var(--bubble-assistant-text)]"
       }`}
     >
-      {message.content}
+      {isEmptyAssistant ? (
+        <span className="inline-flex gap-[3px] align-middle">
+          <span className="w-[5px] h-[5px] rounded-full bg-[var(--text-muted)] animate-dot-pulse" />
+          <span className="w-[5px] h-[5px] rounded-full bg-[var(--text-muted)] animate-dot-pulse [animation-delay:0.2s]" />
+          <span className="w-[5px] h-[5px] rounded-full bg-[var(--text-muted)] animate-dot-pulse [animation-delay:0.4s]" />
+        </span>
+      ) : (
+        message.content
+      )}
     </div>
   );
 }

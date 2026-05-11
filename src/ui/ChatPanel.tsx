@@ -12,6 +12,17 @@ interface ChatPanelProps {
   editorRef: React.RefObject<StrudelEditorHandle | null>;
 }
 
+function summarizeSearchResult(resultStr: string): string {
+  try {
+    const parsed = JSON.parse(resultStr);
+    if (parsed.ok === false) return `Failed: ${parsed.error ?? "unknown error"}`;
+    const count = Array.isArray(parsed.results) ? parsed.results.length : 0;
+    return count === 0 ? "No matches" : `${count} result${count === 1 ? "" : "s"}`;
+  } catch {
+    return "Done";
+  }
+}
+
 export function ChatPanel({ editorRef }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -189,12 +200,14 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
               toolName: block.name,
               content: block.name === "strudel_rewrite_code" ? "Rewriting code..."
                 : block.name === "strudel_edit_code" ? "Editing code..."
+                : block.name === "strudel_docs_search" ? `Searching docs: ${(toolInput.query as string) ?? ""}`
+                : block.name === "sample_search" ? `Searching samples: ${(toolInput.query as string) ?? ""}`
                 : block.name,
             },
           ]);
 
           // Execute tool
-          const resultStr = executeTool(
+          const resultStr = await executeTool(
             block.name,
             toolInput,
             editorRef.current!
@@ -207,7 +220,10 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
             if (last.role === "tool" && last.toolName === block.name) {
               updated[updated.length - 1] = {
                 ...last,
-                content: (block.name === "strudel_rewrite_code" || block.name === "strudel_edit_code") ? "Code updated" : resultStr,
+                content: (block.name === "strudel_rewrite_code" || block.name === "strudel_edit_code") ? "Code updated"
+                  : block.name === "strudel_docs_search" || block.name === "sample_search"
+                    ? summarizeSearchResult(resultStr)
+                    : resultStr,
               };
             }
             return updated;
@@ -279,15 +295,6 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
         {messages.map((msg, i) => (
           <MessageBubble key={i} message={msg} />
         ))}
-        {isStreaming && messages[messages.length - 1]?.content === "" && (
-          <div className="self-start flex items-center gap-2 px-3 py-[0.35rem] text-[0.8rem] text-[var(--text-muted)]">
-            <span className="inline-flex gap-[3px]">
-              <span className="w-[5px] h-[5px] rounded-full bg-[var(--text-muted)] animate-dot-pulse" />
-              <span className="w-[5px] h-[5px] rounded-full bg-[var(--text-muted)] animate-dot-pulse [animation-delay:0.2s]" />
-              <span className="w-[5px] h-[5px] rounded-full bg-[var(--text-muted)] animate-dot-pulse [animation-delay:0.4s]" />
-            </span>
-          </div>
-        )}
         <div ref={messagesEndRef} />
       </div>
 
