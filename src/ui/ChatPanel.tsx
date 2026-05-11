@@ -6,6 +6,7 @@ import { SettingsDrawer } from "./SettingsDrawer";
 import { streamChat } from "../agent/api";
 import { STATIC_PROMPT } from "../agent/system-prompt";
 import { getActiveTools, executeTool } from "../agent/tools";
+import { germanise } from "../agent/accent";
 import * as store from "../store";
 
 interface ChatPanelProps {
@@ -43,7 +44,9 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     {
       role: "assistant",
       content:
-        "Guten Tag, I am Hans Strudel. Tell me what you want to hear and I will make the beats.",
+        germanise(
+          "Guten Tag, I am Hans Strudel. Tell me what you want to hear and I will make the beats."
+        ),
     },
   ]);
   const [input, setInput] = useState("");
@@ -154,7 +157,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
             if (last.role === "assistant") {
               updated[updated.length - 1] = {
                 ...last,
-                content: streamingText,
+                content: germanise(streamingText),
               };
             }
             return updated;
