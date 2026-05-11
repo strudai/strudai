@@ -311,7 +311,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       )}
 
       {visible && (
-        <>
+        <div className="flex flex-col flex-1 min-h-0">
           {/* Settings */}
           <SettingsDrawer
             open={settingsOpen}
@@ -320,7 +320,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
           />
 
           {/* Messages */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-2 rounded-t-[var(--radius)]">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-2 rounded-t-[var(--radius)] animate-body-in">
             {messages.map((msg, i) => (
               <MessageBubble key={i} message={msg} />
             ))}
@@ -357,7 +357,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
               </button>
             )}
           </div>
-        </>
+        </div>
       )}
     </div>
   );
