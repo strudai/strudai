@@ -17,6 +17,10 @@ export function App() {
 
       {/* Console — overlay on the bottom-left */}
       <Console />
+
+      {/* CRT overlay — RGB sub-pixel grain + vignette */}
+      <div className="crt-overlay" aria-hidden />
+
     </>
   );
 }
