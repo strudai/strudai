@@ -125,6 +125,12 @@ strudel-editor {
   height: 100% !important;
   caret-color: #00ff41 !important;
   position: relative !important;
+  border: none !important;
+  outline: none !important;
+}
+
+.cm-editor.cm-focused {
+  outline: none !important;
 }
 
 .cm-editor,
@@ -155,7 +161,7 @@ strudel-editor {
 
 .cm-editor .cm-gutters {
   background: transparent !important;
-  border-right: 1px solid rgba(0, 255, 65, 0.15) !important;
+  border-right: none !important;
   color: rgba(0, 255, 65, 0.4) !important;
 }
 
