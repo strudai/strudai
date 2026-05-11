@@ -23,6 +23,21 @@ function summarizeSearchResult(resultStr: string): string {
   }
 }
 
+function summarizeToolResult(resultStr: string): string {
+  try {
+    const parsed = JSON.parse(resultStr);
+    if (parsed.ok === false) return `failed: ${parsed.error ?? "unknown error"}`;
+    if (parsed.ok === true) return "ok";
+    if (Array.isArray(parsed.results)) {
+      const n = parsed.results.length;
+      return n === 0 ? "no matches" : `${n} result${n === 1 ? "" : "s"}`;
+    }
+    return "done";
+  } catch {
+    return "done";
+  }
+}
+
 export function ChatPanel({ editorRef }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -170,6 +185,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       for (const block of result.content) {
         if (block.type === "server_tool_use" && block.name === "web_search") {
           const query = (block.input as { query?: string }).query ?? "";
+          console.log(`[tool] web_search(${JSON.stringify({ query })})`);
           setMessages((prev) => [
             ...prev,
             {
@@ -191,6 +207,9 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
 
         for (const block of toolUseBlocks) {
           const toolInput = block.input as Record<string, unknown>;
+          const inputStr = JSON.stringify(toolInput);
+          const truncated = inputStr.length > 120 ? inputStr.slice(0, 120) + "..." : inputStr;
+          console.log(`[tool] ${block.name}(${truncated})`);
 
           // Display tool call in chat
           setMessages((prev) => [
@@ -212,6 +231,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
             toolInput,
             editorRef.current!
           );
+          console.log(`[tool] ${block.name} → ${summarizeToolResult(resultStr)}`);
 
           // Update tool message with result
           setMessages((prev) => {
