@@ -17,14 +17,3 @@ export interface StrudelEditorHandle {
   setCode(code: string): void;
 }
 
-declare global {
-  function initStrudel(opts: {
-    prebake: () => Promise<unknown[]>;
-  }): void;
-
-  function samples(
-    json: string,
-    base: string,
-    opts?: { prebake?: boolean; tag?: string }
-  ): Promise<unknown>;
-}
