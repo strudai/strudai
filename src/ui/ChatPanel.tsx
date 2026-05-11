@@ -255,7 +255,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     return (
       <button
         onClick={() => setVisible(true)}
-        className="absolute top-[calc(1rem-16px)] right-[calc(1rem-5px)] w-14 h-14 z-20 rounded-full bg-transparent border-0 p-0 cursor-pointer flex items-center justify-center transition-[transform,opacity] duration-300 hover:scale-110"
+        className="absolute top-[calc(1rem-16px)] right-[calc(1rem-5px)] w-14 h-14 z-20 rounded-full bg-transparent border-0 p-0 cursor-pointer flex items-center justify-center transition-[transform,opacity] duration-300 hover:scale-110 animate-panel-in"
       >
         <img src="/hans_logo.svg" alt="Chat" className="w-full h-full object-contain" />
       </button>
@@ -265,7 +265,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
   const sharedBtn = "bg-transparent border-0 cursor-pointer transition-colors duration-300";
 
   return (
-    <div className="absolute top-4 right-4 bottom-4 w-[360px] z-20 flex flex-col bg-[var(--surface)] border border-[var(--surface-border)] rounded-[var(--radius)] shadow-[var(--shadow)]">
+    <div className="absolute top-4 right-4 bottom-4 w-[360px] z-20 flex flex-col bg-[var(--surface)] border border-[var(--surface-border)] rounded-[var(--radius)] shadow-[var(--shadow)] animate-panel-in">
       {/* Header */}
       <div className="flex justify-between items-center pt-1 pr-1 pb-0 pl-2">
         <button

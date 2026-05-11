@@ -2,6 +2,7 @@ import { useRef } from "react";
 import type { StrudelEditorHandle } from "./agent/types";
 import { StrudelEditor } from "./ui/StrudelEditor";
 import { ChatPanel } from "./ui/ChatPanel";
+import { Console } from "./ui/Console";
 
 export function App() {
   const editorRef = useRef<StrudelEditorHandle>(null);
@@ -13,6 +14,9 @@ export function App() {
 
       {/* Chat Panel — overlay on the right */}
       <ChatPanel editorRef={editorRef} />
+
+      {/* Console — overlay on the bottom-left */}
+      <Console />
     </>
   );
 }
