@@ -150,12 +150,25 @@ strudel-editor {
  * not a child, so we have to target .cm-editor at the document level.
  */
 .cm-editor {
-  background: #000 !important;
+  background: transparent !important;
   height: 100% !important;
   caret-color: #00ff41 !important;
   position: relative !important;
   border: none !important;
   outline: none !important;
+}
+
+/* Ensure every internal layer is transparent so Hydra visuals show through */
+.cm-editor .cm-scroller,
+.cm-editor .cm-content,
+.cm-editor .cm-line,
+.cm-editor .cm-activeLine,
+.cm-editor .cm-gutters,
+.cm-editor .cm-gutter,
+.cm-editor .cm-gutterElement,
+.cm-editor .cm-activeLineGutter {
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 .cm-editor.cm-focused {

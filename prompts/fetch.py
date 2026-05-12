@@ -282,6 +282,109 @@ def fetch_examples() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Hydra: Strudel integration page, zachkrall examples, hydra-synth docs
+# ---------------------------------------------------------------------------
+
+HYDRA_RAW_DIR = RAW_DIR / "hydra"
+
+STRUDEL_HYDRA_PAGE = (
+    "https://codeberg.org/uzu/strudel/raw/branch/main"
+    "/website/src/pages/learn/hydra.mdx"
+)
+ZACHKRALL_OWNER = "zachkrall"
+ZACHKRALL_REPO = "hydra-examples"
+ZACHKRALL_PATH = "examples"
+HYDRA_DOCS_OWNER = "hydra-synth"
+HYDRA_DOCS_REPO = "hydra-docs-v2"
+HYDRA_DOCS_PATH = "content/docs/learning"
+
+
+def _fetch_strudel_hydra_page() -> None:
+    """Fetch the Strudel × Hydra integration page, clean MDX, save."""
+    print(f"[hydra] strudel integration")
+    print(f"  {STRUDEL_HYDRA_PAGE}")
+    with urllib.request.urlopen(STRUDEL_HYDRA_PAGE) as resp:
+        raw = resp.read().decode()
+    cleaned = _clean_mdx(raw)
+    HYDRA_RAW_DIR.mkdir(parents=True, exist_ok=True)
+    output = HYDRA_RAW_DIR / "strudel-integration.md"
+    output.write_text(cleaned)
+    print(f"  → {output.name} ({len(cleaned)} chars)")
+
+
+def _fetch_github_dir(owner: str, repo: str, path: str, ext: str) -> list[dict]:
+    """List files in a GitHub repo directory (recursive). Returns list of dicts
+    with 'name', 'path', 'download_url' for files matching ext."""
+    api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+    req = urllib.request.Request(api_url, headers={"User-Agent": "StrudelGPT"})
+    with urllib.request.urlopen(req) as resp:
+        items = json.loads(resp.read().decode())
+
+    files: list[dict] = []
+    for item in items:
+        if item["type"] == "file" and item["name"].endswith(ext):
+            files.append(item)
+        elif item["type"] == "dir":
+            files.extend(_fetch_github_dir(owner, repo, item["path"], ext))
+    return files
+
+
+def _fetch_zachkrall_examples() -> None:
+    """Fetch hydra examples from zachkrall/hydra-examples/examples."""
+    print(f"[hydra] {ZACHKRALL_OWNER}/{ZACHKRALL_REPO}")
+    files = _fetch_github_dir(ZACHKRALL_OWNER, ZACHKRALL_REPO, ZACHKRALL_PATH, ".js")
+    print(f"  Found {len(files)} .js examples")
+
+    sections: list[str] = []
+    for f in sorted(files, key=lambda x: x["name"]):
+        title = f["name"].removesuffix(".js")
+        print(f"    {title}")
+        try:
+            with urllib.request.urlopen(f["download_url"]) as resp:
+                code = resp.read().decode()
+            sections.append(f"## {title}\n\n```hydra\n{code.strip()}\n```")
+        except Exception as e:
+            print(f"    Skipped: {e}")
+
+    HYDRA_RAW_DIR.mkdir(parents=True, exist_ok=True)
+    output = HYDRA_RAW_DIR / "examples.md"
+    output.write_text("# Hydra Examples\n\n" + "\n\n---\n\n".join(sections) + "\n")
+    print(f"  → {output.name} ({len(sections)} examples)")
+
+
+def _fetch_hydra_docs() -> None:
+    """Fetch hydra-synth/hydra-docs-v2 learning content (recursive)."""
+    print(f"[hydra] {HYDRA_DOCS_OWNER}/{HYDRA_DOCS_REPO}")
+    files = _fetch_github_dir(HYDRA_DOCS_OWNER, HYDRA_DOCS_REPO, HYDRA_DOCS_PATH, ".md")
+    print(f"  Found {len(files)} .md pages")
+
+    sections: list[str] = []
+    for f in sorted(files, key=lambda x: x["path"]):
+        rel_path = f["path"].removeprefix(HYDRA_DOCS_PATH + "/")
+        print(f"    {rel_path}")
+        try:
+            with urllib.request.urlopen(f["download_url"]) as resp:
+                content = resp.read().decode()
+            # Strip Hugo frontmatter if present
+            content = re.sub(r"^---\n.*?\n---\n?", "", content, count=1, flags=re.DOTALL)
+            sections.append(f"## {rel_path}\n\n{content.strip()}")
+        except Exception as e:
+            print(f"    Skipped: {e}")
+
+    HYDRA_RAW_DIR.mkdir(parents=True, exist_ok=True)
+    output = HYDRA_RAW_DIR / "learning.md"
+    output.write_text("# Hydra Learning Docs\n\n" + "\n\n---\n\n".join(sections) + "\n")
+    print(f"  → {output.name} ({len(sections)} pages)")
+
+
+def fetch_hydra() -> None:
+    """Fetch all Hydra sources into raw/hydra/."""
+    _fetch_strudel_hydra_page()
+    _fetch_zachkrall_examples()
+    _fetch_hydra_docs()
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -291,3 +394,5 @@ if __name__ == "__main__":
         fetch_docs()
     if not args or "examples" in args:
         fetch_examples()
+    if not args or "hydra" in args:
+        fetch_hydra()

@@ -35,7 +35,7 @@ The settings menu also shows token usage for the current session.
 src/
   agent/
     api.ts              Anthropic SDK streaming wrapper
-    system-prompt.ts    System prompt + bundled knowledge
+    system-prompt.ts    Assembles system prompt from prompts/*.md
     tools.ts            Tool definitions and executor
     types.ts            Shared types
   ui/
@@ -47,30 +47,38 @@ src/
   App.tsx               Root component
   main.tsx              Entry point
   store.ts              localStorage wrappers
-knowledge/
-  build.py              Run full pipeline (fetch + compress)
-  fetch.py              Fetch docs + community examples
-  compress.py           Compress into ~10k token reference
-  compressed.md         Generated reference (bundled at build time)
+prompts/
+  agent.md              Hand-written: personality + tool guidance
+  style.md              Hand-written: common-mistake corrections / style rules
+  strudel.md            Generated: Strudel API reference (bundled at build time)
+  hydra.md              Generated: Hydra (visuals) reference (bundled at build time)
+  build.py              Run full pipeline (fetch + compress, both domains)
+  fetch.py              Fetch upstream docs + examples for Strudel and Hydra
+  compress.py           Compress raw into the .md references via Claude
 index.html              Vite entry point + Strudel editor
 ```
 
+The system prompt is assembled at bundle time by joining `agent.md`, `strudel.md`, `hydra.md`, and `style.md` (in that order). Edit each file independently to update the agent's behaviour, style rules, or reference material.
+
 ## Knowledge pipeline
 
-The agent loads a compressed Strudel reference bundled at build time. To rebuild it:
+`prompts/strudel.md` and `prompts/hydra.md` are auto-generated. To rebuild both:
 
 ```bash
-cd knowledge
+cd prompts
 uv run --with anthropic --with python-dotenv python build.py
 ```
 
 Or run individual steps:
 
 ```bash
-uv run python fetch.py              # fetch docs + examples to raw/
-uv run python fetch.py docs         # fetch only docs
-uv run python fetch.py examples     # fetch only examples
-uv run --with anthropic --with python-dotenv python compress.py  # compress into compressed.md
+uv run python fetch.py              # fetch all (docs + examples + hydra)
+uv run python fetch.py docs         # Strudel docs only
+uv run python fetch.py examples     # Strudel community examples only
+uv run python fetch.py hydra        # Hydra sources only
+uv run --with anthropic --with python-dotenv python compress.py          # compress both
+uv run --with anthropic --with python-dotenv python compress.py strudel  # only strudel.md
+uv run --with anthropic --with python-dotenv python compress.py hydra    # only hydra.md
 ```
 
 Requires `ANTHROPIC_API_KEY` env var (or `.env` file) for compression.
