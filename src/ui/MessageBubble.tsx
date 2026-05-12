@@ -7,9 +7,9 @@ export function MessageBubble({ message }: { message: Message }) {
   if (message.role === "tool") {
     return (
       <div
-        className={`${baseClasses} self-start px-3 py-[0.35rem] text-[0.8rem] font-mono bg-[rgba(124,92,191,0.12)] border border-[rgba(124,92,191,0.25)] text-[var(--text-secondary)]`}
+        className={`${baseClasses} self-start px-3 py-[0.35rem] text-[0.8rem] font-mono bg-[rgba(255,176,0,0.08)] border border-[var(--surface-border)] text-[var(--text-secondary)]`}
       >
-        <span className="text-[var(--accent-hover)] font-semibold">
+        <span className="text-[var(--accent)] font-semibold">
           {message.toolName}
         </span>{" "}
         <span className="text-[var(--text-muted)] italic">
@@ -26,7 +26,7 @@ export function MessageBubble({ message }: { message: Message }) {
       className={`${baseClasses} px-3 py-2 text-[0.9rem] ${
         isUser
           ? "self-end bg-[var(--bubble-user)] text-[var(--bubble-user-text)]"
-          : "self-start bg-[var(--bubble-assistant)] text-[var(--bubble-assistant-text)]"
+          : "self-start bg-[var(--bubble-assistant)] text-[var(--bubble-assistant-text)] border border-[var(--accent)]"
       }`}
     >
       {isEmptyAssistant ? (

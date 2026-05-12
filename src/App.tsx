@@ -1,11 +1,19 @@
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import type { StrudelEditorHandle } from "./agent/types";
 import { StrudelEditor } from "./ui/StrudelEditor";
 import { ChatPanel } from "./ui/ChatPanel";
 import { Console } from "./ui/Console";
+import * as store from "./store";
 
 export function App() {
   const editorRef = useRef<StrudelEditorHandle>(null);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle(
+      "theme-retro",
+      store.getTheme() === "retro"
+    );
+  }, []);
 
   return (
     <>
@@ -17,6 +25,10 @@ export function App() {
 
       {/* Console — overlay on the bottom-left */}
       <Console />
+
+      {/* CRT overlay — RGB sub-pixel grain + vignette */}
+      <div className="crt-overlay" aria-hidden />
+
     </>
   );
 }

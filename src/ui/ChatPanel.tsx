@@ -6,6 +6,7 @@ import { SettingsDrawer } from "./SettingsDrawer";
 import { streamChat } from "../agent/api";
 import { STATIC_PROMPT } from "../agent/system-prompt";
 import { getActiveTools, executeTool } from "../agent/tools";
+import { germanise } from "../agent/accent";
 import * as store from "../store";
 
 interface ChatPanelProps {
@@ -43,13 +44,15 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     {
       role: "assistant",
       content:
-        "Guten Tag, I am Hans Strudel. Tell me what you want to hear and I will make the beats.",
+        germanise(
+          "Guten Tag, I am Hans Strudel. Tell me what you want to hear and I will make the beats."
+        ),
     },
   ]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [visible, setVisible] = useState(true);
+  const [visible, setVisible] = useState(false);
   const [usage, setUsage] = useState({ inputTokens: 0, outputTokens: 0 });
   const [hasApiKey, setHasApiKey] = useState(!!store.getApiKey());
 
@@ -154,7 +157,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
             if (last.role === "assistant") {
               updated[updated.length - 1] = {
                 ...last,
-                content: streamingText,
+                content: germanise(streamingText),
               };
             }
             return updated;
@@ -271,83 +274,91 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     abortRef.current?.abort();
   }
 
-  if (!visible) {
-    return (
-      <button
-        onClick={() => setVisible(true)}
-        className="absolute top-[calc(1rem-16px)] right-[calc(1rem-5px)] w-14 h-14 z-20 rounded-full bg-transparent border-0 p-0 cursor-pointer flex items-center justify-center transition-[transform,opacity] duration-300 hover:scale-110 animate-panel-in"
-      >
-        <img src="/hans_logo.svg" alt="Chat" className="w-full h-full object-contain" />
-      </button>
-    );
-  }
-
   const sharedBtn = "bg-transparent border-0 cursor-pointer transition-colors duration-300";
 
   return (
-    <div className="absolute top-4 right-4 bottom-4 w-[360px] z-20 flex flex-col bg-[var(--surface)] border border-[var(--surface-border)] rounded-[var(--radius)] shadow-[var(--shadow)] animate-panel-in">
-      {/* Header */}
-      <div className="flex justify-between items-center pt-1 pr-1 pb-0 pl-2">
+    <div
+      data-open={visible ? "" : undefined}
+      className="retro-panel absolute top-4 right-4 z-20 flex flex-col bg-[var(--surface)] border border-[var(--surface-border)] rounded-[var(--radius)] shadow-[var(--shadow)] w-[110px] h-[30px] data-[open]:w-[360px] data-[open]:h-[calc(100vh-2rem)] transition-[width,height] duration-300 ease-out animate-panel-in"
+    >
+      {/* Header — collapsed shows [ HANS ], expanded shows settings + close */}
+      {!visible ? (
         <button
-          onClick={() => setSettingsOpen(!settingsOpen)}
-          className={`${sharedBtn} text-[1.1rem] p-1 ${settingsOpen ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
-          title="Settings"
+          onClick={() => setVisible(true)}
+          className="shrink-0 w-full h-[30px] flex items-center justify-center text-[0.8rem] font-bold text-[var(--text-primary)] hover:text-[var(--accent-hover)] bg-transparent border-0 cursor-pointer transition-colors duration-300 whitespace-nowrap"
         >
-          &#x2699;
+          [ HANS ]
         </button>
-        <button
-          onClick={() => setVisible(false)}
-          className={`${sharedBtn} text-2xl leading-none px-3 py-2 text-[var(--text-muted)] hover:text-[var(--text-primary)]`}
-        >
-          &times;
-        </button>
-      </div>
-
-      {/* Settings */}
-      <SettingsDrawer
-        open={settingsOpen}
-        onApiKeyChange={(key) => setHasApiKey(!!key)}
-        usage={usage}
-      />
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2 rounded-t-[var(--radius)]">
-        {messages.map((msg, i) => (
-          <MessageBubble key={i} message={msg} />
-        ))}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input */}
-      <div className="flex p-3 gap-2 border-t border-[var(--surface-border)] rounded-b-[var(--radius)]">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-          placeholder={
-            hasApiKey ? "Describe a pattern..." : "Set API key first..."
-          }
-          disabled={!hasApiKey}
-          className="flex-1 min-w-0 px-3 py-2 rounded-md text-[0.9rem] outline-none bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--input-focus-border)]"
-        />
-        {isStreaming ? (
+      ) : (
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center pt-1 pr-1 pb-0 pl-2 shrink-0">
           <button
-            onClick={handleStop}
-            className="px-4 py-2 rounded-md cursor-pointer text-[0.9rem] transition-colors duration-300 bg-[var(--input-bg)] border border-[var(--surface-border)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--text-primary)]"
+            onClick={() => setSettingsOpen(!settingsOpen)}
+            className={`${sharedBtn} text-[1.1rem] p-1 justify-self-start ${settingsOpen ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
+            title="Settings"
           >
-            Stop
+            &#x2699;
           </button>
-        ) : (
+          <span className="text-[0.8rem] font-bold text-[var(--text-primary)] justify-self-center">
+            [ HANS ]
+          </span>
           <button
-            onClick={handleSend}
-            disabled={!input.trim() || !hasApiKey}
-            className="px-4 py-2 rounded-md cursor-pointer text-[0.9rem] border-0 transition-colors duration-300 bg-[var(--accent)] text-[var(--text-primary)] enabled:hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={() => setVisible(false)}
+            className={`${sharedBtn} text-2xl leading-none px-3 py-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] justify-self-end`}
           >
-            Send
+            &times;
           </button>
-        )}
-      </div>
+        </div>
+      )}
+
+      {visible && (
+        <div className="flex flex-col flex-1 min-h-0">
+          {/* Settings */}
+          <SettingsDrawer
+            open={settingsOpen}
+            onApiKeyChange={(key) => setHasApiKey(!!key)}
+            usage={usage}
+          />
+
+          {/* Messages */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-2 rounded-t-[var(--radius)] animate-body-in">
+            {messages.map((msg, i) => (
+              <MessageBubble key={i} message={msg} />
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input */}
+          <div className="flex p-3 gap-2 border-t border-[var(--surface-border)] rounded-b-[var(--radius)]">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+              placeholder={
+                hasApiKey ? "Describe a pattern..." : "Set API key first..."
+              }
+              disabled={!hasApiKey}
+              className="flex-1 min-w-0 px-3 py-2 rounded-md text-[0.9rem] outline-none bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--input-focus-border)]"
+            />
+            {isStreaming ? (
+              <button
+                onClick={handleStop}
+                className="px-4 py-2 rounded-md cursor-pointer text-[0.9rem] transition-colors duration-300 bg-[var(--input-bg)] border border-[var(--surface-border)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--text-primary)]"
+              >
+                Stop
+              </button>
+            ) : (
+              <button
+                onClick={handleSend}
+                disabled={!input.trim() || !hasApiKey}
+                className="px-4 py-2 rounded-md cursor-pointer text-[0.9rem] border-0 transition-colors duration-300 bg-[var(--accent)] text-black font-bold enabled:hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Send
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
