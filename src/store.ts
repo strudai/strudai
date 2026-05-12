@@ -1,7 +1,10 @@
 const API_KEY_KEY = "strudelgpt_api_key";
 const MODEL_KEY = "strudelgpt_model";
 const TOOLS_KEY = "strudelgpt_tools";
+const THEME_KEY = "strudelgpt_theme";
 const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
+
+export type Theme = "classic" | "retro";
 
 export function getApiKey(): string | null {
   return localStorage.getItem(API_KEY_KEY);
@@ -37,4 +40,12 @@ export function setToolToggle(name: string, enabled: boolean): void {
   const current = getToolToggles();
   current[name] = enabled;
   localStorage.setItem(TOOLS_KEY, JSON.stringify(current));
+}
+
+export function getTheme(): Theme {
+  return localStorage.getItem(THEME_KEY) === "classic" ? "classic" : "retro";
+}
+
+export function setTheme(theme: Theme): void {
+  localStorage.setItem(THEME_KEY, theme);
 }

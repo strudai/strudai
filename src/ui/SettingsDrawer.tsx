@@ -25,6 +25,13 @@ export function SettingsDrawer({
   const [saveError, setSaveError] = useState<string>("");
   const [toolToggles, setToolToggles] = useState<Record<string, boolean>>(store.getToolToggles());
   const [toolsExpanded, setToolsExpanded] = useState(false);
+  const [theme, setTheme] = useState<store.Theme>(store.getTheme());
+
+  function handleThemeChange(next: store.Theme) {
+    setTheme(next);
+    store.setTheme(next);
+    document.documentElement.classList.toggle("theme-retro", next === "retro");
+  }
 
   function handleToggleTool(name: string, enabled: boolean) {
     store.setToolToggle(name, enabled);
@@ -121,6 +128,17 @@ export function SettingsDrawer({
   return (
     <div className="settings-drawer" data-open={open ? "" : undefined}>
       <div className="settings-drawer-inner">
+        <label>
+          <span>Theme</span>
+          <select
+            value={theme}
+            onChange={(e) => handleThemeChange(e.target.value as store.Theme)}
+          >
+            <option value="retro">Retro</option>
+            <option value="classic">Classic</option>
+          </select>
+        </label>
+
         <label>
           <span>Model</span>
           <select
