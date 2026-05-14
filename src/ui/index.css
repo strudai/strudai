@@ -146,8 +146,18 @@ strudel-editor {
 }
 
 /*
- * Strudel REPL renders <div class="cm-editor"> as a sibling of <strudel-editor>,
- * not a child, so we have to target .cm-editor at the document level.
+ * Strudel REPL inserts a plain <div> as a sibling right after <strudel-editor>
+ * and uses it as the editor root (the .cm-editor lives inside it). The REPL
+ * sets an inline `background-color: var(--background)` (a dark grey) on this
+ * div, so override it with !important to let the pure-black page show through.
+ */
+strudel-editor + div {
+  background-color: transparent !important;
+}
+
+/*
+ * .cm-editor is rendered inside that sibling div, not as a child of
+ * <strudel-editor>, so we target it at the document level.
  */
 .cm-editor {
   background: transparent !important;
