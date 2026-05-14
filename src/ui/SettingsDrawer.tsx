@@ -6,7 +6,19 @@ import { TOOL_META, type ToolMeta } from "../agent/tools";
 interface SettingsDrawerProps {
   open: boolean;
   onApiKeyChange: (key: string | null) => void;
-  usage: { inputTokens: number; outputTokens: number };
+  usage: {
+    cachedInputTokens: number;
+    uncachedInputTokens: number;
+    outputTokens: number;
+    contextTokens: number;
+  };
+}
+
+/** Format a token count compactly: 1234 → "1.2k", 2_500_000 → "2.5M". */
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
 }
 
 export function SettingsDrawer({
@@ -31,6 +43,7 @@ export function SettingsDrawer({
     store.setAutoFix(enabled);
   }
   const [toolsExpanded, setToolsExpanded] = useState(false);
+  const [usageExpanded, setUsageExpanded] = useState(false);
   const [theme, setTheme] = useState<store.Theme>(store.getTheme());
 
   function handleThemeChange(next: store.Theme) {
@@ -202,13 +215,15 @@ export function SettingsDrawer({
           </span>
         </label>
 
-        <label className="tool-toggle" title="When the Strudel REPL throws an error, automatically ask Hans to fix it.">
+        <label title="When the Strudel REPL throws an error, automatically ask Hans to fix it.">
           <span>Auto-fix</span>
-          <input
-            type="checkbox"
-            checked={autoFix}
-            onChange={(e) => handleToggleAutoFix(e.target.checked)}
-          />
+          <span className="setting-control-right">
+            <input
+              type="checkbox"
+              checked={autoFix}
+              onChange={(e) => handleToggleAutoFix(e.target.checked)}
+            />
+          </span>
         </label>
 
         <div className="tools-section">
@@ -259,13 +274,41 @@ export function SettingsDrawer({
           </div>
         </div>
 
-        <label>
-          <span>Usage</span>
-          <span className="usage-value">
-            <span>{usage.inputTokens.toLocaleString()} in</span>
-            <span>{usage.outputTokens.toLocaleString()} out</span>
-          </span>
-        </label>
+        <div className="tools-section">
+          <button
+            type="button"
+            className="tools-summary"
+            onClick={() => setUsageExpanded((v) => !v)}
+          >
+            <span>Usage</span>
+            <span className="tools-summary-meta">
+              {formatTokens(usage.uncachedInputTokens + usage.cachedInputTokens)} in
+              {" · "}
+              {formatTokens(usage.outputTokens)} out
+              <span className="tools-chevron">▸</span>
+            </span>
+          </button>
+          <div className="tools-groups-wrapper" data-open={usageExpanded ? "" : undefined}>
+            <div className="tools-groups">
+              <div className="usage-row">
+                <span>In (uncached)</span>
+                <span>{formatTokens(usage.uncachedInputTokens)}</span>
+              </div>
+              <div className="usage-row">
+                <span>In (cached)</span>
+                <span>{formatTokens(usage.cachedInputTokens)}</span>
+              </div>
+              <div className="usage-row">
+                <span>Out</span>
+                <span>{formatTokens(usage.outputTokens)}</span>
+              </div>
+              <div className="usage-row">
+                <span>Context window</span>
+                <span>{formatTokens(usage.contextTokens)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

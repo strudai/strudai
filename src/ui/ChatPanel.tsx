@@ -54,7 +54,12 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [visible, setVisible] = useState(false);
-  const [usage, setUsage] = useState({ inputTokens: 0, outputTokens: 0 });
+  const [usage, setUsage] = useState({
+    cachedInputTokens: 0,
+    uncachedInputTokens: 0,
+    outputTokens: 0,
+    contextTokens: 0,
+  });
   const [hasApiKey, setHasApiKey] = useState(!!store.getApiKey());
 
   // API-level messages (includes tool_use/tool_result blocks)
@@ -70,10 +75,13 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  function addUsage(input: number, output: number) {
+  function addUsage(cached: number, uncached: number, output: number) {
     setUsage((prev) => ({
-      inputTokens: prev.inputTokens + input,
+      cachedInputTokens: prev.cachedInputTokens + cached,
+      uncachedInputTokens: prev.uncachedInputTokens + uncached,
       outputTokens: prev.outputTokens + output,
+      // The latest request's full input is the context size at that point.
+      contextTokens: cached + uncached,
     }));
   }
 
@@ -202,7 +210,11 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
         },
       });
 
-      addUsage(result.inputTokens, result.outputTokens);
+      addUsage(
+        result.cachedInputTokens,
+        result.uncachedInputTokens,
+        result.outputTokens
+      );
 
       // Remove empty assistant message if no text was streamed
       if (!streamingText) {
