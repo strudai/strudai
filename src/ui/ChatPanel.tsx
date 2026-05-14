@@ -350,7 +350,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
   return (
     <div
       data-open={visible ? "" : undefined}
-      className="retro-panel absolute top-4 right-4 z-20 flex flex-col bg-[var(--surface)] border border-[var(--surface-border)] rounded-[var(--radius)] shadow-[var(--shadow)] w-[110px] h-[30px] data-[open]:w-[360px] data-[open]:h-[calc(100vh-2rem)] transition-[width,height] duration-300 ease-out animate-panel-in"
+      className="retro-panel fixed top-4 right-4 z-20 flex flex-col bg-[var(--surface)] border border-[var(--surface-border)] rounded-[var(--radius)] shadow-[var(--shadow)] w-[110px] h-[30px] data-[open]:w-[360px] data-[open]:h-[calc(100vh-2rem)] transition-[width,height] duration-300 ease-out animate-panel-in"
     >
       {/* Header — collapsed shows [ HANS ], expanded shows settings + close */}
       {!visible ? (

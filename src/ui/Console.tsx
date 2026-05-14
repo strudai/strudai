@@ -90,7 +90,7 @@ export function Console() {
   return (
     <div
       data-open={open ? "" : undefined}
-      className="retro-panel absolute bottom-4 left-4 z-20 flex flex-col overflow-hidden bg-[var(--surface)] border border-[var(--surface-border)] rounded-[var(--radius)] shadow-[var(--shadow)] w-[150px] h-[28px] data-[open]:w-[420px] data-[open]:h-[240px] transition-[width,height] duration-300 ease-out"
+      className="retro-panel fixed bottom-4 left-4 z-20 flex flex-col overflow-hidden bg-[var(--surface)] border border-[var(--surface-border)] rounded-[var(--radius)] shadow-[var(--shadow)] w-[150px] h-[28px] data-[open]:w-[420px] data-[open]:h-[240px] transition-[width,height] duration-300 ease-out"
     >
       <button
         onClick={() => setOpen((v) => !v)}
