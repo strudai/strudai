@@ -7,6 +7,7 @@ import { streamChat } from "../agent/api";
 import { STATIC_PROMPT } from "../agent/system-prompt";
 import { getActiveTools, executeTool } from "../agent/tools";
 import { germanise } from "../agent/accent";
+import { subscribeToErrors, getErrorsSince } from "../agent/error-buffer";
 import * as store from "../store";
 
 interface ChatPanelProps {
@@ -76,8 +77,8 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     }));
   }
 
-  async function handleSend() {
-    const text = input.trim();
+  async function handleSend(seedText?: string) {
+    const text = (seedText ?? input).trim();
     if (!text || isStreaming) return;
 
     const apiKey = store.getApiKey();
@@ -92,7 +93,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       ...apiMessagesRef.current,
       { role: "user", content: text },
     ];
-    setInput("");
+    if (!seedText) setInput("");
     setIsStreaming(true);
 
     const abortController = new AbortController();
@@ -112,6 +113,40 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       abortRef.current = null;
     }
   }
+
+  // Auto-fix watcher: when enabled, new errors trigger a fix turn.
+  const isStreamingRef = useRef(isStreaming);
+  useEffect(() => {
+    isStreamingRef.current = isStreaming;
+  }, [isStreaming]);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let windowStart = 0;
+    const unsubscribe = subscribeToErrors(() => {
+      if (!store.getAutoFix()) return;
+      if (isStreamingRef.current) return;
+      if (!timer) windowStart = Date.now() - 500; // start of this error burst
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        // Re-check at fire time — state may have changed during debounce
+        if (isStreamingRef.current || !store.getAutoFix()) return;
+        if (!store.getApiKey()) return;
+        const errors = getErrorsSince(windowStart);
+        if (errors.length === 0) return;
+        handleSend(
+          "The Strudel REPL just threw an error. Check the editor and fix it.\n\n" +
+            errors.join("\n")
+        );
+      }, 2000);
+    });
+    return () => {
+      unsubscribe();
+      if (timer) clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function buildSystem(code: string): Anthropic.TextBlockParam[] {
     const blocks: Anthropic.TextBlockParam[] = [
@@ -136,6 +171,8 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     const system = buildSystem(editorCode);
     const tools = getActiveTools(store.getToolToggles());
     let continueLoop = true;
+    let fixAttempts = 0;
+    const FIX_ATTEMPT_CAP = 3;
 
     while (continueLoop) {
       // Add empty assistant message for streaming text
@@ -252,10 +289,32 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
             return updated;
           });
 
+          // Enforce fix-attempt cap for code-editing tools
+          let finalResultStr = resultStr;
+          const isCodeTool =
+            block.name === "strudel_edit_code" ||
+            block.name === "strudel_rewrite_code";
+          if (isCodeTool) {
+            try {
+              const parsed = JSON.parse(resultStr);
+              if (Array.isArray(parsed.errors) && parsed.errors.length > 0) {
+                fixAttempts += 1;
+                if (fixAttempts >= FIX_ATTEMPT_CAP) {
+                  finalResultStr = JSON.stringify({
+                    ok: parsed.ok,
+                    note: `stopped after ${FIX_ATTEMPT_CAP} attempts; user intervention needed`,
+                  });
+                }
+              }
+            } catch {
+              /* not JSON, leave as-is */
+            }
+          }
+
           toolResults.push({
             type: "tool_result",
             tool_use_id: block.id,
-            content: resultStr,
+            content: finalResultStr,
           });
         }
 
@@ -349,7 +408,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
               </button>
             ) : (
               <button
-                onClick={handleSend}
+                onClick={() => handleSend()}
                 disabled={!input.trim() || !hasApiKey}
                 className="px-4 py-2 rounded-md cursor-pointer text-[0.9rem] border-0 transition-colors duration-300 bg-[var(--accent)] text-black font-bold enabled:hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
               >

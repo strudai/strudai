@@ -24,6 +24,12 @@ export function SettingsDrawer({
   const [saveState, setSaveState] = useState<"idle" | "saving" | "ok" | "fail">("idle");
   const [saveError, setSaveError] = useState<string>("");
   const [toolToggles, setToolToggles] = useState<Record<string, boolean>>(store.getToolToggles());
+  const [autoFix, setAutoFixState] = useState<boolean>(store.getAutoFix());
+
+  function handleToggleAutoFix(enabled: boolean) {
+    setAutoFixState(enabled);
+    store.setAutoFix(enabled);
+  }
   const [toolsExpanded, setToolsExpanded] = useState(false);
   const [theme, setTheme] = useState<store.Theme>(store.getTheme());
 
@@ -194,6 +200,15 @@ export function SettingsDrawer({
                 : "Save"}
             </button>
           </span>
+        </label>
+
+        <label className="tool-toggle" title="When the Strudel REPL throws an error, automatically ask Hans to fix it.">
+          <span>Auto-fix</span>
+          <input
+            type="checkbox"
+            checked={autoFix}
+            onChange={(e) => handleToggleAutoFix(e.target.checked)}
+          />
         </label>
 
         <div className="tools-section">

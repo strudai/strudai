@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { recordError } from "../agent/error-buffer";
 
 const MAX_LINES = 200;
 
@@ -48,7 +49,10 @@ export function Console() {
         const next = [...prev, { level, text }];
         return next.length > MAX_LINES ? next.slice(next.length - MAX_LINES) : next;
       });
-      if (level === "error") setHasErrors(true);
+      if (level === "error") {
+        setHasErrors(true);
+        recordError(text);
+      }
     }
 
     console.log = (...args: unknown[]) => {

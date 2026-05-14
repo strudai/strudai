@@ -1,5 +1,19 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { StrudelEditorHandle } from "./types";
+import { getErrorsSince } from "./error-buffer";
+
+const EVAL_WAIT_MS = 1500;
+
+async function captureEvalErrors<T extends { ok: boolean }>(
+  apply: () => void,
+  baseResult: T
+): Promise<string> {
+  const t0 = Date.now();
+  apply();
+  await new Promise((r) => setTimeout(r, EVAL_WAIT_MS));
+  const errors = getErrorsSince(t0);
+  return JSON.stringify(errors.length > 0 ? { ...baseResult, errors } : baseResult);
+}
 
 export interface ToolMeta {
   name: string;
@@ -196,8 +210,7 @@ export async function executeTool(
   switch (name) {
     case "strudel_rewrite_code": {
       const code = input.code as string;
-      editor.setCode(code);
-      return JSON.stringify({ ok: true });
+      return captureEvalErrors(() => editor.setCode(code), { ok: true });
     }
     case "strudel_edit_code": {
       const oldStr = input.old_string as string;
@@ -210,8 +223,10 @@ export async function executeTool(
       if (count > 1) {
         return JSON.stringify({ ok: false, error: `old_string found ${count} times, must match exactly once` });
       }
-      editor.setCode(current.replace(oldStr, newStr));
-      return JSON.stringify({ ok: true });
+      return captureEvalErrors(
+        () => editor.setCode(current.replace(oldStr, newStr)),
+        { ok: true }
+      );
     }
     case "strudel_docs_search": {
       return docsSearch(input.query as string);
