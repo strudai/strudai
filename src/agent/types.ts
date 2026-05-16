@@ -14,6 +14,6 @@ export interface StrudelEditorElement extends HTMLElement {
 
 export interface StrudelEditorHandle {
   getCode(): string;
-  setCode(code: string): void;
+  setCode(code: string, evaluate?: boolean): void;
 }
 

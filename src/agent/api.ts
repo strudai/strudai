@@ -58,6 +58,12 @@ export async function streamChat({
   onToolCall,
   signal,
 }: StreamChatParams): Promise<ChatResult> {
+  // If the user already hit stop before this iteration started, bail now —
+  // addEventListener("abort") below would never fire for an already-aborted signal.
+  if (signal?.aborted) {
+    throw new DOMException("Aborted by user", "AbortError");
+  }
+
   const anthropic = getClient(apiKey);
 
   const stream = anthropic.messages.stream({

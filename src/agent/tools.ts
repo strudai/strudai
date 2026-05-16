@@ -1,18 +1,17 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { StrudelEditorHandle } from "./types";
-import { getErrorsSince } from "./error-buffer";
+import { getRecentConsole } from "./error-buffer";
 
-const EVAL_WAIT_MS = 1500;
+const CONSOLE_READ_WAIT_MS = 1000;
+const CONSOLE_READ_COUNT = 10;
 
-async function captureEvalErrors<T extends { ok: boolean }>(
-  apply: () => void,
-  baseResult: T
-): Promise<string> {
-  const t0 = Date.now();
-  apply();
-  await new Promise((r) => setTimeout(r, EVAL_WAIT_MS));
-  const errors = getErrorsSince(t0);
-  return JSON.stringify(errors.length > 0 ? { ...baseResult, errors } : baseResult);
+async function readConsole(): Promise<string> {
+  // Wait briefly so errors from a just-applied edit have time to surface.
+  await new Promise((r) => setTimeout(r, CONSOLE_READ_WAIT_MS));
+  const entries = getRecentConsole(CONSOLE_READ_COUNT);
+  const lines = entries.map((e) => `[${e.level}] ${e.text}`);
+  const errorCount = entries.filter((e) => e.level === "error").length;
+  return JSON.stringify({ lines, errorCount });
 }
 
 export interface ToolMeta {
@@ -25,6 +24,7 @@ export interface ToolMeta {
 export const TOOL_META: ToolMeta[] = [
   { name: "strudel_edit_code", label: "Edit code", description: "Targeted search-and-replace edits", category: "Editor" },
   { name: "strudel_rewrite_code", label: "Rewrite code", description: "Replace the entire editor code", category: "Editor" },
+  { name: "strudel_read_console", label: "Read console", description: "Check recent console output for errors", category: "Editor" },
   { name: "strudel_docs_search", label: "Docs search", description: "Search the official Strudel documentation", category: "Research" },
   { name: "sample_search", label: "Sample search", description: "Find Strudel sample packs and sounds", category: "Research" },
   { name: "web_search", label: "Web search", description: "Search the web (server-side, billed)", category: "Research" },
@@ -76,6 +76,18 @@ export const TOOLS: Anthropic.ToolUnion[] = [
         },
       },
       required: ["old_string", "new_string"],
+    },
+  },
+  {
+    name: "strudel_read_console",
+    description:
+      "Read recent console output (logs, warnings, errors) from the running " +
+      "Strudel REPL. Call this after writing or editing code to confirm it runs " +
+      "cleanly — some errors (e.g. missing samples) only appear once the pattern plays.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
     },
   },
   {
@@ -210,7 +222,8 @@ export async function executeTool(
   switch (name) {
     case "strudel_rewrite_code": {
       const code = input.code as string;
-      return captureEvalErrors(() => editor.setCode(code), { ok: true });
+      editor.setCode(code);
+      return JSON.stringify({ ok: true });
     }
     case "strudel_edit_code": {
       const oldStr = input.old_string as string;
@@ -223,10 +236,11 @@ export async function executeTool(
       if (count > 1) {
         return JSON.stringify({ ok: false, error: `old_string found ${count} times, must match exactly once` });
       }
-      return captureEvalErrors(
-        () => editor.setCode(current.replace(oldStr, newStr)),
-        { ok: true }
-      );
+      editor.setCode(current.replace(oldStr, newStr));
+      return JSON.stringify({ ok: true });
+    }
+    case "strudel_read_console": {
+      return readConsole();
     }
     case "strudel_docs_search": {
       return docsSearch(input.query as string);

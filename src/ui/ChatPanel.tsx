@@ -7,11 +7,19 @@ import { streamChat } from "../agent/api";
 import { STATIC_PROMPT } from "../agent/system-prompt";
 import { getActiveTools, executeTool } from "../agent/tools";
 import { germanise } from "../agent/accent";
-import { subscribeToErrors, getErrorsSince } from "../agent/error-buffer";
+import { subscribeToConsole, getErrorsSince } from "../agent/error-buffer";
 import * as store from "../store";
 
 interface ChatPanelProps {
   editorRef: React.RefObject<StrudelEditorHandle | null>;
+}
+
+const GREETING = germanise(
+  "Guten Tag, I am Hans Strudel. Tell me what you want to hear and I will make the beats."
+);
+
+function initialMessages(): Message[] {
+  return [{ role: "assistant", content: GREETING }];
 }
 
 function summarizeSearchResult(resultStr: string): string {
@@ -30,6 +38,11 @@ function summarizeToolResult(resultStr: string): string {
     const parsed = JSON.parse(resultStr);
     if (parsed.ok === false) return `failed: ${parsed.error ?? "unknown error"}`;
     if (parsed.ok === true) return "ok";
+    if (typeof parsed.errorCount === "number") {
+      return parsed.errorCount === 0
+        ? "console clean"
+        : `${parsed.errorCount} error${parsed.errorCount === 1 ? "" : "s"}`;
+    }
     if (Array.isArray(parsed.results)) {
       const n = parsed.results.length;
       return n === 0 ? "no matches" : `${n} result${n === 1 ? "" : "s"}`;
@@ -40,16 +53,18 @@ function summarizeToolResult(resultStr: string): string {
   }
 }
 
+function summarizeConsoleResult(resultStr: string): string {
+  try {
+    const parsed = JSON.parse(resultStr);
+    const n = parsed.errorCount ?? 0;
+    return n === 0 ? "console clean" : `${n} error${n === 1 ? "" : "s"}`;
+  } catch {
+    return "checked";
+  }
+}
+
 export function ChatPanel({ editorRef }: ChatPanelProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content:
-        germanise(
-          "Guten Tag, I am Hans Strudel. Tell me what you want to hear and I will make the beats."
-        ),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -85,7 +100,14 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     }));
   }
 
-  async function handleSend(seedText?: string) {
+  function handleClearChat() {
+    if (isStreaming) return;
+    setMessages(initialMessages());
+    apiMessagesRef.current = [];
+    setUsage((prev) => ({ ...prev, contextTokens: 0 }));
+  }
+
+  async function handleSend(seedText?: string, isAutoFix = false) {
     const text = (seedText ?? input).trim();
     if (!text || isStreaming) return;
 
@@ -95,8 +117,12 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       return;
     }
 
-    // Add user message to both display and API messages
-    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    // The API always needs a user message; the displayed bubble differs:
+    // an auto-fix trigger renders as a tool-style pill, not a user message.
+    const displayMessage: Message = isAutoFix
+      ? { role: "tool", toolName: "auto-fix", content: "Strudel error detected — fixing" }
+      : { role: "user", content: text };
+    setMessages((prev) => [...prev, displayMessage]);
     apiMessagesRef.current = [
       ...apiMessagesRef.current,
       { role: "user", content: text },
@@ -110,7 +136,9 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     try {
       await runAgentLoop(apiKey, abortController.signal);
     } catch (err) {
-      if (err instanceof Error && err.name !== "AbortError") {
+      // If the user hit stop, swallow whatever the abort threw (the SDK's
+      // abort error name isn't reliably "AbortError").
+      if (!abortController.signal.aborted && err instanceof Error) {
         setMessages((prev) => [
           ...prev,
           { role: "assistant", content: `Error: ${err.message}` },
@@ -131,7 +159,10 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     let windowStart = 0;
-    const unsubscribe = subscribeToErrors(() => {
+    // Signature of the last error set auto-fix acted on — prevents re-triggering
+    // a fresh turn on the exact same unfixed errors (would loop forever).
+    let lastSignature = "";
+    const unsubscribe = subscribeToConsole(() => {
       if (!store.getAutoFix()) return;
       if (isStreamingRef.current) return;
       if (!timer) windowStart = Date.now() - 500; // start of this error burst
@@ -143,9 +174,13 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
         if (!store.getApiKey()) return;
         const errors = getErrorsSince(windowStart);
         if (errors.length === 0) return;
+        const signature = [...new Set(errors)].sort().join("|||");
+        if (signature === lastSignature) return; // already tried these
+        lastSignature = signature;
         handleSend(
           "The Strudel REPL just threw an error. Check the editor and fix it.\n\n" +
-            errors.join("\n")
+            errors.join("\n"),
+          true
         );
       }, 2000);
     });
@@ -179,10 +214,10 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     const system = buildSystem(editorCode);
     const tools = getActiveTools(store.getToolToggles());
     let continueLoop = true;
-    let fixAttempts = 0;
-    const FIX_ATTEMPT_CAP = 3;
 
     while (continueLoop) {
+      if (signal.aborted) break;
+
       // Add empty assistant message for streaming text
       let streamingText = "";
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
@@ -271,6 +306,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
               toolName: block.name,
               content: block.name === "strudel_rewrite_code" ? "Rewriting code..."
                 : block.name === "strudel_edit_code" ? "Editing code..."
+                : block.name === "strudel_read_console" ? "Checking console..."
                 : block.name === "strudel_docs_search" ? `Searching docs: ${(toolInput.query as string) ?? ""}`
                 : block.name === "sample_search" ? `Searching samples: ${(toolInput.query as string) ?? ""}`
                 : block.name,
@@ -293,6 +329,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
               updated[updated.length - 1] = {
                 ...last,
                 content: (block.name === "strudel_rewrite_code" || block.name === "strudel_edit_code") ? "Code updated"
+                  : block.name === "strudel_read_console" ? summarizeConsoleResult(resultStr)
                   : block.name === "strudel_docs_search" || block.name === "sample_search"
                     ? summarizeSearchResult(resultStr)
                     : resultStr,
@@ -301,32 +338,10 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
             return updated;
           });
 
-          // Enforce fix-attempt cap for code-editing tools
-          let finalResultStr = resultStr;
-          const isCodeTool =
-            block.name === "strudel_edit_code" ||
-            block.name === "strudel_rewrite_code";
-          if (isCodeTool) {
-            try {
-              const parsed = JSON.parse(resultStr);
-              if (Array.isArray(parsed.errors) && parsed.errors.length > 0) {
-                fixAttempts += 1;
-                if (fixAttempts >= FIX_ATTEMPT_CAP) {
-                  finalResultStr = JSON.stringify({
-                    ok: parsed.ok,
-                    note: `stopped after ${FIX_ATTEMPT_CAP} attempts; user intervention needed`,
-                  });
-                }
-              }
-            } catch {
-              /* not JSON, leave as-is */
-            }
-          }
-
           toolResults.push({
             type: "tool_result",
             tool_use_id: block.id,
-            content: finalResultStr,
+            content: resultStr,
           });
         }
 
@@ -335,6 +350,9 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
           ...apiMessagesRef.current,
           { role: "user", content: toolResults },
         ];
+
+        // User may have hit stop while tools were running
+        if (signal.aborted) break;
       } else {
         continueLoop = false;
       }
@@ -362,13 +380,22 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
         </button>
       ) : (
         <div className="grid grid-cols-[1fr_auto_1fr] items-center pt-1 pr-1 pb-0 pl-2 shrink-0">
-          <button
-            onClick={() => setSettingsOpen(!settingsOpen)}
-            className={`${sharedBtn} text-[1.1rem] p-1 justify-self-start ${settingsOpen ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
-            title="Settings"
-          >
-            &#x2699;
-          </button>
+          <span className="flex items-center justify-self-start">
+            <button
+              onClick={() => setSettingsOpen(!settingsOpen)}
+              className={`${sharedBtn} text-[1.1rem] p-1 ${settingsOpen ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
+              title="Settings"
+            >
+              &#x2699;
+            </button>
+            <button
+              onClick={handleClearChat}
+              className={`${sharedBtn} text-[1rem] p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]`}
+              title="New chat"
+            >
+              &#x21bb;
+            </button>
+          </span>
           <span className="text-[0.8rem] font-bold text-[var(--text-primary)] justify-self-center">
             [ HANS ]
           </span>

@@ -1,30 +1,41 @@
 /**
- * Shared error buffer.
+ * Shared console buffer.
  *
- * Console.tsx records each `console.error` here; tool executors and the
- * auto-fix watcher in ChatPanel query / subscribe to it.
+ * Console.tsx records every console line here; the `strudel_read_console`
+ * tool, the fix-attempt cap, and the auto-fix watcher all read from it.
  */
 
-interface ConsoleError {
+export type ConsoleLevel = "log" | "warn" | "error";
+
+export interface ConsoleEntry {
+  level: ConsoleLevel;
   text: string;
   timestamp: number;
 }
 
-const MAX_BUFFER = 100;
-const buffer: ConsoleError[] = [];
+const MAX_BUFFER = 200;
+const buffer: ConsoleEntry[] = [];
 const listeners = new Set<() => void>();
 
-export function recordError(text: string): void {
-  buffer.push({ text, timestamp: Date.now() });
+export function recordConsole(level: ConsoleLevel, text: string): void {
+  buffer.push({ level, text, timestamp: Date.now() });
   if (buffer.length > MAX_BUFFER) buffer.shift();
   listeners.forEach((cb) => cb());
 }
 
-export function getErrorsSince(timestamp: number): string[] {
-  return buffer.filter((e) => e.timestamp >= timestamp).map((e) => e.text);
+/** Last `count` console entries, oldest first. */
+export function getRecentConsole(count: number): ConsoleEntry[] {
+  return buffer.slice(-count);
 }
 
-export function subscribeToErrors(cb: () => void): () => void {
+/** Error-level entries since a timestamp (used by the auto-fix watcher). */
+export function getErrorsSince(timestamp: number): string[] {
+  return buffer
+    .filter((e) => e.timestamp >= timestamp && e.level === "error")
+    .map((e) => e.text);
+}
+
+export function subscribeToConsole(cb: () => void): () => void {
   listeners.add(cb);
   return () => listeners.delete(cb);
 }
