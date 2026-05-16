@@ -27,6 +27,7 @@ export const TOOL_META: ToolMeta[] = [
   { name: "strudel_read_console", label: "Read console", description: "Check recent console output for errors", category: "Editor" },
   { name: "strudel_docs_search", label: "Docs search", description: "Search the official Strudel documentation", category: "Research" },
   { name: "sample_search", label: "Sample search", description: "Find Strudel sample packs and sounds", category: "Research" },
+  { name: "example_search", label: "Example search", description: "Literal text search across community Strudel patterns", category: "Research" },
   { name: "web_search", label: "Web search", description: "Search the web (server-side, billed)", category: "Research" },
 ];
 
@@ -111,6 +112,27 @@ export const TOOLS: Anthropic.ToolUnion[] = [
       type: "object" as const,
       properties: {
         query: { type: "string", description: "Sample or pack name to search for" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "example_search",
+    description:
+      "Search the bundled community Strudel examples by literal " +
+      "case-insensitive substring match across both titles and code. Use it " +
+      "often when writing patterns — search for a function name, sound, " +
+      "technique, or genre to find idiomatic real-world usage. " +
+      "Never copy-paste results directly; use them only as references for " +
+      "syntax and patterns, then adapt to the user's request.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query: {
+          type: "string",
+          description:
+            "Substring to search for (matches title and code, case-insensitive)",
+        },
       },
       required: ["query"],
     },
@@ -214,6 +236,66 @@ async function sampleSearch(query: string): Promise<string> {
   }
 }
 
+const EXAMPLES_URL = "/strudel_examples.md";
+const MAX_EXAMPLE_RESULTS = 5;
+const MAX_CODE_CHARS = 3000;
+
+interface Example {
+  title: string;
+  code: string;
+}
+
+let examplesCache: Example[] | null = null;
+
+async function loadExamples(): Promise<Example[]> {
+  if (examplesCache) return examplesCache;
+  const resp = await fetch(EXAMPLES_URL);
+  if (!resp.ok) throw new Error(`Examples ${resp.status}`);
+  const text = await resp.text();
+  // The pipeline joins sections with "\n\n---\n\n"; the first chunk is the file header.
+  const sections = text.split(/\n\n---\n\n/);
+  const out: Example[] = [];
+  for (const section of sections) {
+    const titleMatch = section.match(/^##\s+(.+)$/m);
+    const codeMatch = section.match(/```(?:strudel)?\n([\s\S]*?)```/);
+    if (titleMatch && codeMatch) {
+      out.push({ title: titleMatch[1].trim(), code: codeMatch[1].trim() });
+    }
+  }
+  examplesCache = out;
+  return out;
+}
+
+async function exampleSearch(query: string): Promise<string> {
+  try {
+    const examples = await loadExamples();
+    const q = query.toLowerCase();
+    const matches = examples.filter(
+      (e) =>
+        e.title.toLowerCase().includes(q) || e.code.toLowerCase().includes(q)
+    );
+    const results = matches.slice(0, MAX_EXAMPLE_RESULTS).map((e) => ({
+      title: e.title,
+      code:
+        e.code.length > MAX_CODE_CHARS
+          ? e.code.slice(0, MAX_CODE_CHARS) + "\n// ...truncated"
+          : e.code,
+    }));
+    return JSON.stringify({
+      query,
+      total_matches: matches.length,
+      results,
+      usage:
+        "Reference only — do not copy/paste. Use to learn syntax and patterns, then adapt.",
+    });
+  } catch (err) {
+    return JSON.stringify({
+      ok: false,
+      error: err instanceof Error ? err.message : "example_search failed",
+    });
+  }
+}
+
 export async function executeTool(
   name: string,
   input: Record<string, unknown>,
@@ -247,6 +329,9 @@ export async function executeTool(
     }
     case "sample_search": {
       return sampleSearch(input.query as string);
+    }
+    case "example_search": {
+      return exampleSearch(input.query as string);
     }
     default:
       return JSON.stringify({ ok: false, error: `Unknown tool: ${name}` });

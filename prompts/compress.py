@@ -6,10 +6,17 @@ Usage:
     python prompts/compress.py hydra       # only Hydra
 
 Requires: ANTHROPIC_API_KEY env var, pip install anthropic python-dotenv
+
+The Anthropic free tier caps inputs at 30 000 tokens per minute. The raw docs
++ examples for Strudel alone are well over that, so the pipeline:
+- truncates each per-call input to ~25k tokens (~100 KB),
+- splits the Strudel compression into two calls (API ref + style guide),
+- waits ~65s between calls so the rate-limit window has time to refresh.
 """
 
 import os
 import sys
+import time
 from pathlib import Path
 
 import anthropic
@@ -22,47 +29,43 @@ STRUDEL_OUTPUT = PROMPTS_DIR / "strudel.md"
 HYDRA_OUTPUT = PROMPTS_DIR / "hydra.md"
 EXAMPLES_FILE = "examples.md"
 
-STRUDEL_PROMPT = """\
-You are compressing Strudel live-coding documentation and examples into a \
-concise reference that an AI coding assistant will use at startup to write \
-Strudel code.
+MODEL = "claude-opus-4-7"
+# ~25k tokens at 4 chars/token — comfortably under the 30k/min input cap.
+MAX_INPUT_CHARS = 100_000
+RATE_LIMIT_WAIT = 65  # seconds; one minute of grace for the input-token window
 
-You will receive two sections: DOCUMENTATION (API docs) and EXAMPLES (real \
-community code). Produce a single reference with two clearly labeled parts:
+API_REF_PROMPT = """\
+You are compressing Strudel live-coding documentation into a concise API \
+cheat sheet for an AI coding assistant.
 
-## Part 1: API Reference
-Compress the documentation into a dense cheat sheet. Rules:
+Rules:
 - Do NOT use markdown tables — they waste tokens on | separators and divider rows.
 - Use compact formats instead: `func(args)` — description, or grouped bullet lists.
 - Group related items on single lines where possible, e.g.: \
-`lpf(freq)` `hpf(freq)` `delay(amt)` `room(amt)` `gain(lvl)` — audio effects
+`lpf(freq)` `hpf(freq)` `delay(amt)` `room(amt)` `gain(lvl)` — audio effects.
 - Cover: mini-notation syntax, core functions (sound, note, n, s, stack, cat, \
 seq, arrange, silence), effects, modifiers (slow, fast, rev, jux, etc.), \
 samples/synths, and tonal helpers (scale, scaleTranspose).
 - Drop: tutorial prose, motivation, setup instructions, FAQ, niche topics \
 (CSound, Hydra, PWA, device motion, XEN).
+- Output ONLY the cheat sheet, no preamble or explanation.
+- Target ~2000 tokens.
+- Use ```strudel``` fenced blocks for code examples.
+"""
 
-## Part 2: Style Guide
-Analyze the examples to extract idiomatic coding patterns. Rules:
+STYLE_GUIDE_PROMPT = """\
+You are compressing real community Strudel patterns into an idiomatic style \
+guide for an AI coding assistant.
+
+Rules:
 - Identify recurring conventions: how code is structured, how parts are named \
 and composed, method chaining style, pattern notation preferences.
 - Show 3-5 short idiomatic snippets (max 4 lines each) that demonstrate the \
 most common patterns — drums, bass, melody, arrangement.
 - Note any consistent habits: use of let/const, stack() vs cat(), how effects \
 are chained, how songs are arranged into sections.
-
-## Part 3: Genre Sketches
-Provide minimal style sketches for these genres: ambient, house, techno, \
-dnb, hip-hop, breakbeat, dub, synthwave, idm, minimal.
-For each genre, write:
-- The genre name as a heading
-- 1-2 sentences on the key characteristics (tempo, rhythmic feel, typical sounds)
-- One short code snippet (2-6 lines) showing a representative pattern
-Keep each genre sketch compact — this is a quick reference, not a tutorial.
-
-General rules:
-- Output ONLY the compressed reference, no preamble or explanation.
-- Target ~10000 tokens total (~2000 API reference, ~4000 style guide, ~4000 genre sketches).
+- Output ONLY the style guide, no preamble or explanation.
+- Target ~3000 tokens.
 - Use ```strudel``` fenced blocks for code examples.
 """
 
@@ -111,8 +114,28 @@ General rules:
 """
 
 
+def _truncate(text: str, limit: int = MAX_INPUT_CHARS) -> str:
+    if len(text) <= limit:
+        return text
+    return text[:limit] + "\n\n[...truncated to stay under the input-token rate limit]"
+
+
+def _compress(client: anthropic.Anthropic, system: str, user: str, max_tokens: int) -> str:
+    response = client.messages.create(
+        model=MODEL,
+        max_tokens=max_tokens,
+        system=system,
+        messages=[{"role": "user", "content": user}],
+    )
+    return response.content[0].text
+
+
 def compress_strudel() -> str:
-    """Compress Strudel raw docs + examples into a single reference."""
+    """Compress Strudel raw docs + examples into a single reference.
+
+    Runs two calls (API ref + style guide) with a delay between them to stay
+    under the 30k input-tokens-per-minute rate limit.
+    """
     docs: list[str] = []
     examples = ""
     for path in sorted(RAW_DIR.glob("*.md")):
@@ -122,27 +145,37 @@ def compress_strudel() -> str:
         else:
             docs.append(f"### {path.name}\n\n{content}")
 
-    message = (
-        "# DOCUMENTATION\n\n"
-        + "\n\n---\n\n".join(docs)
-        + "\n\n# EXAMPLES\n\n"
-        + examples
-    )
+    docs_text = _truncate("\n\n---\n\n".join(docs))
+    examples_text = _truncate(examples)
 
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=12000,
-        system=STRUDEL_PROMPT,
-        messages=[{"role": "user", "content": message}],
+
+    print("  → call 1/2: API reference (from docs)")
+    api_ref = _compress(
+        client, API_REF_PROMPT, f"# DOCUMENTATION\n\n{docs_text}", max_tokens=3000
     )
-    return response.content[0].text
+
+    print(f"  → waiting {RATE_LIMIT_WAIT}s for the rate-limit window to refresh")
+    time.sleep(RATE_LIMIT_WAIT)
+
+    print("  → call 2/2: style guide (from examples)")
+    style = _compress(
+        client, STYLE_GUIDE_PROMPT, f"# EXAMPLES\n\n{examples_text}", max_tokens=4000
+    )
+
+    return (
+        "## Part 1: API Reference\n\n"
+        + api_ref.strip()
+        + "\n\n## Part 2: Style Guide\n\n"
+        + style.strip()
+        + "\n"
+    )
 
 
 def compress_hydra() -> str:
-    """Compress Hydra raw files into a single reference."""
+    """Compress Hydra raw files into a single reference (one call)."""
     integration = (HYDRA_RAW_DIR / "strudel-integration.md").read_text()
-    docs = (HYDRA_RAW_DIR / "learning.md").read_text()
+    docs = _truncate((HYDRA_RAW_DIR / "learning.md").read_text())
     examples = (HYDRA_RAW_DIR / "examples.md").read_text()
 
     message = (
@@ -155,13 +188,7 @@ def compress_hydra() -> str:
     )
 
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=8000,
-        system=HYDRA_PROMPT,
-        messages=[{"role": "user", "content": message}],
-    )
-    return response.content[0].text
+    return _compress(client, HYDRA_PROMPT, message, max_tokens=8000)
 
 
 def main() -> None:
@@ -177,6 +204,11 @@ def main() -> None:
         print(f"Wrote {STRUDEL_OUTPUT} ({len(result)} chars)")
 
     if run_hydra:
+        # If we already ran Strudel in this invocation, pause so the Hydra
+        # call doesn't blow the same rate-limit window.
+        if run_strudel:
+            print(f"Waiting {RATE_LIMIT_WAIT}s before Hydra to respect rate limits")
+            time.sleep(RATE_LIMIT_WAIT)
         print("Compressing Hydra...")
         result = compress_hydra()
         HYDRA_OUTPUT.write_text(result)

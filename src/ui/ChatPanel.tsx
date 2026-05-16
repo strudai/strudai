@@ -309,6 +309,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
                 : block.name === "strudel_read_console" ? "Checking console..."
                 : block.name === "strudel_docs_search" ? `Searching docs: ${(toolInput.query as string) ?? ""}`
                 : block.name === "sample_search" ? `Searching samples: ${(toolInput.query as string) ?? ""}`
+                : block.name === "example_search" ? `Searching examples: ${(toolInput.query as string) ?? ""}`
                 : block.name,
             },
           ]);
@@ -330,7 +331,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
                 ...last,
                 content: (block.name === "strudel_rewrite_code" || block.name === "strudel_edit_code") ? "Code updated"
                   : block.name === "strudel_read_console" ? summarizeConsoleResult(resultStr)
-                  : block.name === "strudel_docs_search" || block.name === "sample_search"
+                  : block.name === "strudel_docs_search" || block.name === "sample_search" || block.name === "example_search"
                     ? summarizeSearchResult(resultStr)
                     : resultStr,
               };

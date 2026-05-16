@@ -17,6 +17,7 @@ from urllib.parse import unquote, urlparse
 
 KNOWLEDGE_DIR = Path(__file__).resolve().parent
 RAW_DIR = KNOWLEDGE_DIR / "raw"
+PUBLIC_DIR = KNOWLEDGE_DIR.parent / "public"
 
 # ---------------------------------------------------------------------------
 # Docs: Strudel MDX pages from Codeberg
@@ -275,10 +276,14 @@ def fetch_examples() -> None:
         print(f"[examples] {repo['owner']}/{repo['repo']}")
         sections.extend(_fetch_github_repo(repo["owner"], repo["repo"]))
 
+    body = f"# Strudel Examples\n\n" + "\n\n---\n\n".join(sections) + "\n"
     RAW_DIR.mkdir(exist_ok=True)
-    output = RAW_DIR / "examples.md"
-    output.write_text(f"# Strudel Examples\n\n" + "\n\n---\n\n".join(sections) + "\n")
-    print(f"  → examples.md ({len(sections)} examples)")
+    (RAW_DIR / "examples.md").write_text(body)
+    # Also publish to public/ so the runtime can fetch the full set for the
+    # example_search tool. (Same canonical content as raw/examples.md.)
+    PUBLIC_DIR.mkdir(exist_ok=True)
+    (PUBLIC_DIR / "strudel_examples.md").write_text(body)
+    print(f"  → examples.md and public/strudel_examples.md ({len(sections)} examples)")
 
 
 # ---------------------------------------------------------------------------
