@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { recordConsole } from "../agent/error-buffer";
 
 const MAX_LINES = 200;
 
@@ -25,8 +26,38 @@ function filterStyledArgs(args: unknown[]): unknown[] {
 
 function format(args: unknown[]): string {
   return args
-    .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+    .map((a) => {
+      if (typeof a === "string") return a;
+      // Error objects: JSON.stringify yields "{}" since fields aren't
+      // enumerable — use the stack (or message) instead.
+      if (a instanceof Error) return a.stack || `${a.name}: ${a.message}`;
+      try {
+        const json = JSON.stringify(a);
+        return json === "{}" || json === undefined ? String(a) : json;
+      } catch {
+        return String(a);
+      }
+    })
     .join(" ");
+}
+
+/**
+ * Strudel's production build logs `[query] error:` with only `e.message` —
+ * a minified, near-meaningless string. Recognise the common cases and append
+ * an actionable hint so the user (and the model, via strudel_read_console)
+ * have something to work with.
+ */
+function annotateStrudelError(text: string): string {
+  if (/\[query\]\s*error:.*\bis not a function\b/i.test(text)) {
+    return (
+      text +
+      " — likely a higher-order combinator (every, off, jux, superimpose, when, " +
+      "sometimes, ply, ...) was passed a value where it expects a function such as " +
+      "`x => x.fast(2)`. Runtime error: the code parsed fine, so check the arguments " +
+      "to those functions, not the syntax."
+    );
+  }
+  return text;
 }
 
 export function Console() {
@@ -43,12 +74,17 @@ export function Console() {
     function push(level: Level, args: unknown[]) {
       const filtered = filterStyledArgs(args);
       if (filtered.length === 0) return;
-      const text = format(filtered);
+      const text = annotateStrudelError(format(filtered));
       setLines((prev) => {
         const next = [...prev, { level, text }];
         return next.length > MAX_LINES ? next.slice(next.length - MAX_LINES) : next;
       });
-      if (level === "error") setHasErrors(true);
+      // Strudel logs some errors via console.log (e.g. "[getTrigger] error:"),
+      // not console.error — promote any message mentioning "error" to error level.
+      const effectiveLevel: Level =
+        level === "error" || /error/i.test(text) ? "error" : level;
+      if (effectiveLevel === "error") setHasErrors(true);
+      recordConsole(effectiveLevel, text);
     }
 
     console.log = (...args: unknown[]) => {
@@ -86,7 +122,7 @@ export function Console() {
   return (
     <div
       data-open={open ? "" : undefined}
-      className="retro-panel absolute bottom-4 left-4 z-20 flex flex-col overflow-hidden bg-[var(--surface)] border border-[var(--surface-border)] rounded-[var(--radius)] shadow-[var(--shadow)] w-[150px] h-[28px] data-[open]:w-[420px] data-[open]:h-[240px] transition-[width,height] duration-300 ease-out"
+      className="retro-panel fixed bottom-4 left-4 z-20 flex flex-col overflow-hidden bg-[var(--surface)] border border-[var(--surface-border)] rounded-[var(--radius)] shadow-[var(--shadow)] w-[150px] h-[28px] data-[open]:w-[420px] data-[open]:h-[240px] transition-[width,height] duration-300 ease-out"
     >
       <button
         onClick={() => setOpen((v) => !v)}

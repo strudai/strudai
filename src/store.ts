@@ -2,6 +2,7 @@ const API_KEY_KEY = "strudelgpt_api_key";
 const MODEL_KEY = "strudelgpt_model";
 const TOOLS_KEY = "strudelgpt_tools";
 const THEME_KEY = "strudelgpt_theme";
+const AUTOFIX_KEY = "strudelgpt_autofix";
 const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 
 export type Theme = "classic" | "retro";
@@ -43,9 +44,17 @@ export function setToolToggle(name: string, enabled: boolean): void {
 }
 
 export function getTheme(): Theme {
-  return localStorage.getItem(THEME_KEY) === "classic" ? "classic" : "retro";
+  return localStorage.getItem(THEME_KEY) === "retro" ? "retro" : "classic";
 }
 
 export function setTheme(theme: Theme): void {
   localStorage.setItem(THEME_KEY, theme);
+}
+
+export function getAutoFix(): boolean {
+  return localStorage.getItem(AUTOFIX_KEY) === "true";
+}
+
+export function setAutoFix(enabled: boolean): void {
+  localStorage.setItem(AUTOFIX_KEY, String(enabled));
 }

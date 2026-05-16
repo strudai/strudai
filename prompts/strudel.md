@@ -1,171 +1,309 @@
 ## Part 1: API Reference
 
-**Core Pattern Functions**
-`s(name)` `sound(name)` — play sound/sample; `note(notes)` `n(notes)` — pitch control; `freq(hz)` — direct frequency
-`stack(a,b,...)` — parallel layers; `cat(a,b,...)` — sequential patterns; `seq(a,b,...)` — sequence in single cycle
-`silence` `~` — rest; `pure(val)` — single value pattern
+# Strudel Cheat Sheet
 
-**Mini Notation**
-Basic: `"a b c"` sequence, `"a,b"` parallel, `"~"` rest, `"a:2"` sample selection
-Structure: `"[a b]"` subdivision, `"<a b>"` alternation, `"{a b c}%2"` polymeter
-Timing: `"a*2"` faster, `"a/2"` slower, `"a@2"` elongate, `"a!2"` replicate, `"a(3,8)"` euclidean
-Random: `"a?"` 50% chance, `"a?0.3"` 30% chance, `"a|b|c"` random choice
+## Mini-Notation (inside `""` or `` ` ` ``)
 
-**Samples & Synths**
-`bank(name)` — drum machine selection; `samples(map, baseURL)` — load custom samples
-Basic synths: `"sawtooth" "square" "triangle" "sine"` `"white" "pink" "brown"` noise
-Advanced: `"supersaw"` `"z_sawtooth"` etc; `.n(num)` sample number selection
+- `"a b c"` — sequence (events fit in 1 cycle)
+- `"[a b] c"` — nested subdivisions
+- `"a*4"` `"a/2"` — speed up / slow down
+- `"<a b c>"` — one per cycle (alternation)
+- `"a,b,c"` — parallel/polyphony (chord/stack)
+- `"~"` or `"-"` — rest
+- `"a@2 b"` — elongation (weight)
+- `"a!2 b"` — replicate (no speedup)
+- `"a?"` `"a?0.25"` — 50% / 25% chance drop
+- `"a|b|c"` — random choice
+- `"bd(3,8,1)"` — euclidean (beats,segments,offset)
+- `"hh:2"` — sample index
+- `"a b ."` (`.` separator inside one string)
+- Single quotes `'C minor'` = plain string, not parsed
 
-**Audio Effects**
-Filters: `lpf(freq)` `hpf(freq)` `bpf(freq)` — low/high/bandpass filters; `lpq(q)` `hpq(q)` `bpq(q)` — resonance
-Envelope: `attack(time)` `decay(time)` `sustain(level)` `release(time)` `adsr("a:d:s:r")`
-Spatial: `pan(pos)` `room(amt)` `delay(amt)` `jux(fn)` `juxBy(amt, fn)`
-Distortion: `distort(amt)` `crush(bits)` `coarse(rate)` `shape(amt)`
-Modulation: `vib(rate)` `vibmod(depth)` `tremolo(rate)` `phaser(rate)`
-Dynamics: `gain(level)` `velocity(vel)` `compressor(settings)`
+## Pitch / Sound Sources
 
-**Time Modifiers**
-`slow(factor)` `fast(factor)` `early(time)` `late(time)` — timing shifts
-`rev()` — reverse; `palindrome()` — play forward then backward
-`euclid(hits, steps)` `euclidRot(hits, steps, rot)` — euclidean rhythms
-`ply(times)` — repeat each event; `iter(shifts)` — shift pattern each cycle
-`segment(rate)` — increase event density; `compress(start, end)` — time window
+- `note("c#4 eb5 60 72")` — note names or MIDI numbers
+- `freq("220 330 440")` — direct frequency in Hz
+- `s("bd hh")` / `sound(...)` — samples or synth waveforms
+- `n("0 1 2")` — sample index OR scale degree
+- Default synth waveform = `triangle`
 
-**Pattern Control**
-`mask(pattern)` `struct(pattern)` — rhythmic templates; `when(test, fn)` — conditional application
-`sometimes(fn)` `often(fn)` `rarely(fn)` — probability-based effects
-`every(n, fn)` — apply every nth cycle; `off(time, fn)` — offset copy
-`superimpose(fn)` `layer(fn1, fn2, ...)` — add layers; `echo(time, feedback, fn)` — delays
+## Synth Waveforms
 
-**Tonal Helpers**
-`scale(name)` — map numbers to scale; `scaleTranspose(steps)` — transpose within scale
-`chord(symbol)` — chord from symbol; `voicing()` — voice chord; `anchor(note)` — voicing anchor
-`transpose(semitones)` — pitch shift; `add(interval)` `sub(interval)` — pitch arithmetic
+`sine` `sawtooth` `square` `triangle` `white` `pink` `brown` `crackle`
+- `noise(amt)` `density(d)` — noise mixing
+- `partials([...])` `phases([...])` — additive synth
+- `fm(idx)` `fmh(ratio)` `fmattack` `fmdecay` `fmsustain` `fmenv`
+- `vib(rate)` `vibmod(depth)` — vibrato
+- ZZFX: `s("z_sawtooth")` + `curve` `slide` `zcrush` `zdelay` `pitchJump` `lfo` `tremolo`
+- Wavetables: prefix `wt_` (samples loop automatically)
 
-**Signals & Randomness**
-Waves: `sine` `saw` `tri` `square` `rand` `perlin` — continuous signals
-`.range(min, max)` — scale signal range; `.slow(factor)` `.fast(factor)` — signal speed
-Random: `choose([a,b,c])` `wchoose([[a,w1],[b,w2]])` — weighted choice
-`irand(max)` — integer random; `brand()` — binary random
+## Samples
 
-**Arrange & Control**
-`arrange([dur, pattern], ...)` — song structure; `setcpm(cpm)` — set tempo
-`$: pattern` — define pattern track; `hush()` — mute; `solo()` — solo track
+- `samples('github:user/repo')` — load sample pack
+- `samples({name:'path.wav'}, baseURL)` — custom map
+- `samples('shabda:bass:4,hihat:4')` — freesound query
+- `bank("RolandTR909")` — prefix bank name
+- Default drum abbrevs: `bd sd rim cp hh oh cr rd ht mt lt sh cb tb perc misc fx`
+
+## Sample Effects
+
+- `begin(t)` `end(t)` — slice region (0–1)
+- `loop(1)` `loopBegin` `loopEnd`
+- `cut(group)` — choke group
+- `clip(amt)` / `legato` — duration scale
+- `chop(n)` — chop into n pieces
+- `striate(n)` `slice(n,"0 1 2")` `splice(n,"...")`
+- `loopAt(cycles)` `fit()` — fit sample to cycle
+- `scrub(pos)` `speed(rate)`
+
+## Filters
+
+- `lpf(hz)` `hpf(hz)` `bpf(hz)` — cutoff
+- `lpq(q)` `hpq(q)` `bpq(q)` — resonance
+- `ftype('24db'|'12db')` `vowel("a e i o u")`
+- Envelopes: `lpattack/lpa` `lpdecay/lpd` `lpsustain/lps` `lprelease/lpr` `lpenv` (depth); same for `hp*` and `bp*`
+
+## Amplitude / Dynamics
+
+- `gain(g)` `velocity(v)` `postgain(g)`
+- `attack/a` `decay/d` `sustain/s` `release/r` `adsr("a:d:s:r")`
+- `compressor(threshold)` `xfade(...)`
+- Pitch env: `pattack/patt` `pdecay/pdec` `prelease/prel` `penv` `pcurve` `panchor`
+- AM: `am(rate)` `tremolo` `tremolodepth` `tremolosync` `tremoloskew` `tremolophase` `tremoloshape`
+
+## Spatial / Effects
+
+- `pan(0..1)` `jux(f)` `juxBy(amt, f)`
+- `room(amt)` `roomsize(s)` `roomfade` `roomlp` `roomdim` `iresponse`
+- `delay(amt)` `delaytime(t)` `delayfeedback(fb)`
+- `phaser(rate)` `phaserdepth` `phasercenter` `phasersweep`
+- `coarse(n)` `crush(bits)` `distort(amt)` `shape(amt)`
+- `orbit(n)` — separate FX bus
+- `duckorbit` `duckattack` `duckdepth`
+
+## Pattern Constructors
+
+- `cat(a,b,c)` ≡ `"<a b c>"` (one per cycle)
+- `seq(a,b,c)` ≡ `"a b c"` (sequence)
+- `stack(a,b,c)` ≡ `"a,b,c"` (parallel)
+- `stepcat([3,a],[2,b])` ≡ `"a@3 b@2"`
+- `arrange([n,pat], ...)` — n cycles each
+- `polymeter([a,b],[x,y,z])` ≡ `"{a b, x y z}"`
+- `polymeterSteps(n, ...)` ≡ `"{...}%n"`
+- `silence` — empty pattern
+- `run(n)` — `0..n-1`
+- `binary(n)` `binaryN(n,len)` — bit patterns
+
+## Time Modifiers
+
+- `slow(n)` / `fast(n)` ≡ `/n` `*n`
+- `early(t)` `late(t)` — shift
+- `rev()` `palindrome()`
+- `iter(n)` `iterBack(n)` — rotate through
+- `ply(n)` — repeat each event
+- `segment(n)` — sample continuous to n events/cycle
+- `compress(s,e)` `zoom(s,e)` — time window
+- `linger(t)` — loop first portion
+- `fastGap(n)` — speed up leaving silence
+- `inside(n,f)` `outside(n,f)` — apply f at different rates
+- `cpm(n)` `setcpm(n)` `setcps(n)` — tempo
+- `swing(n)` `swingBy(amt,n)`
+- `ribbon(off,n)` — slice into ribbons
+
+## Conditional / Structural
+
+- `every(n, f)` ≡ `firstOf(n,f)` / `lastOf(n,f)`
+- `when(pat, f)` — apply f when pat is true
+- `chunk(n, f)` `chunkBack(n,f)` `fastChunk(n,f)`
+- `struct("x ~ x x")` — apply rhythm structure
+- `mask(pat)` — gate events
+- `arp("0 2 1 3")` — arpeggiate chord notes
+- `arpWith(f)` — arpeggiate via function
+- `reset(pat)` `restart(pat)` `hush()`
+- `invert()`
+- `pick({a:patA, b:patB}, "<a b>")` — pick patterns by key
+- `pickmod` `pickF` `pickRestart` `pickReset` (+ mod variants)
+- `inhabit({...})` `squeeze(pat, {...})`
+
+## Random / Probabilistic
+
+- `choose(a,b,c)` `wchoose([a,2],[b,1])`
+- `chooseCycles(...)` `wchooseCycles(...)`
+- `degrade()` `degradeBy(p)` `undegrade()` `undegradeBy(p)`
+- `sometimes(f)` `sometimesBy(p,f)`
+- `someCycles(f)` `someCyclesBy(p,f)`
+- `often(f)` (75%) `rarely(f)` (25%) `almostAlways(f)` (90%) `almostNever(f)` (10%) `never(f)` `always(f)`
+
+## Continuous Signals
+
+`sine` `cosine` `saw` `tri` `square` `rand` `perlin` (range 0–1)
+- `sine2`/`saw2`/etc — range -1 to 1
+- `irand(n)` — int 0..n-1; `brand` / `brandBy(p)` — booleans
+- `mouseX` `mouseY`
+- `.range(min,max)` — scale a signal: `sine.range(200,800).slow(4)`
+
+## Accumulation
+
+- `superimpose(f)` — overlay with f applied
+- `layer(f1, f2, ...)` — stack multiple transforms
+- `off(time, f)` — overlay shifted + transformed: `.off(1/8, add(7))`
+- `echo(n, time, feedback)`
+- `echoWith(n, time, f)` `stut(n
 
 ## Part 2: Style Guide
 
-**Typical Pattern Structure**
-Most patterns follow this organization:
+# Strudel Community Style Guide
+
+## File Structure
+
+Patterns typically start with a header comment, then `setcps()` or `setcpm()`, then named parts assigned with `let`/`const` or `$:`, and end with an `arrange(...)` or `stack(...)` call.
+
 ```strudel
-$: s("bd sd [~ bd] sd").bank("RolandTR909").gain(.7)
-$: note("c e g f").scale("C:minor").s("piano").room(.5)  
-$: chord("<Am F C G>").voicing().piano().gain(.4)
+// @title Song Name
+// @by author
+setcps(120/60/4)  // or setcpm(120/4)
+const chords = "<Am F C G>/2"
+$: chord(chords).voicing().piano().room(.4)
 ```
 
-**Common Chaining Style**
-Effects typically chained in logical order: sound → envelope → filters → spatial → gain
+Two dominant assignment styles coexist:
+- **`let`/`const` + final `stack`/`arrange`** — for layered, section-based songs.
+- **`$:` / `name:`** — labeled top-level patterns auto-stacked (more common in newer scripts).
+
+## Drums
+
+Drums are layered via `stack()`, almost always using `.bank("RolandTR909" | "Linn9000" | "AkaiLinn" | "LinnDrum" | "BossDR550")`. Hats and offbeats use rest tokens (`~` or `-`). Velocity/gain is tuned low per layer.
+
 ```strudel
-note("c3 eb3 g3").s("sawtooth")
-  .attack(.1).decay(.2).sustain(.3).release(.4)
-  .lpf(1000).room(.3).gain(.6)
+stack(
+  s("bd*4").bank("RolandTR909"),
+  s("~ sd ~ sd").bank("RolandTR909"),
+  s("hh*8").bank("RolandTR808").gain(.25)
+)
 ```
 
-**Mini-Notation Preferences**
-- Drums: `s("bd sd [~ bd] sd")` over complex nested patterns
-- Notes: Prefer scale numbers `n("0 2 4")` over note names for algorithmic work
-- Timing: Use `<>` for slow alternation, `[]` for subdivision, `*` for speed
-- Structure: Often nest max 2-3 levels: `"bd [hh [oh ~]] sd"`
+Complex kits commonly use `pickOut({...})` to map symbols to processed samples:
 
-**Naming Conventions**
-- Use `$:` for main pattern tracks
-- Common track types: `drums` `bass` `lead` `chords` `pads`
-- Prefer descriptive names: `kick` over `p1`, `melody` over `m`
-
-**Typical Song Architecture**
 ```strudel
-// Setup
-setcpm(120/4)
-
-// Patterns  
-$: s("bd sd").gain(.7)
-$: note("c e g").s("piano")
-
-// Alternative: arrange sections
-arrange([4, intro], [16, verse], [8, chorus])
+"<bd sd [bd bd] sd>*2".pickOut({
+  bd: s('bd').velocity(.55).lpf(500),
+  sd: s('sd').velocity(.55).hpf(200),
+  cr: s('cr').velocity(.1).pan(.55)
+}).bank("Linn9000").gain(.7)
 ```
 
-## Part 3: Genre Sketches
+## Bass
 
-### Ambient
-Slow-moving, atmospheric textures with minimal percussion. Focus on sustained pads, gentle evolving timbres, and spacious reverbs.
+Bass lines use `.note()` with low octaves (1–2), routed through `gm_synth_bass_1`, `gm_electric_bass_finger`, `triangle`, or `sawtooth`. Filtering with `.lpf(200..400)` is near-universal.
+
 ```strudel
-note("c e g").slow(8).s("pad").attack(2).room(1)
-  .superimpose(x=>x.transpose(12).gain(.3))
+note("<c2 g1 eb1 f1>*4").sound("gm_synth_bass_1")
+  .lpf(200).lpenv(5).lpa(.5).lpd(.1).gain(.7)
 ```
 
-### House
-Four-on-floor kick drum, filtered synths, and steady hi-hats around 125 BPM. Classic use of build-ups and breakdowns.
+Chord-driven basses use `.rootNotes(2)` or `n("0").chord(c).mode('root').anchor('e2').voicing()`.
+
+## Melody / Lead
+
+Melodies favor either explicit `note(...)` strings or scale-relative `n(...).scale("c4:minor")`. Octaves and accidentals use lowercase letters with `b`/`#`. `@n` extends durations, `!n` repeats, `<>` alternates per cycle, `~`/`-` rest.
+
 ```strudel
-$: s("bd*4").gain(.8)
-$: s("[~ cp]*2, hh*8").gain(.3)
-$: note("c e").s("sawtooth").lpf(sine.range(400,2000)).slow(2)
+n("<3 [2@2 1] [0@4 0 1]@2 [2 0 2]>")
+  .scale("c4:minor").s("gm_oboe")
+  .attack(.05).release(.2).gain(.5).room(.6)
 ```
 
-### Techno
-Driving 4/4 rhythm, industrial sounds, repetitive patterns. Often features acid-style bass lines and mechanical percussion.
+Pads/leads frequently `.layer(x=>..., x=>...)` two timbres, pan-split (`.pan(.4)`/`.pan(.6)`) with one `.late(.01)` for stereo width.
+
+## Chords
+
+`chord("<Am F C G>/2").anchor("e4").voicing()` is the canonical chord progression idiom. `setDefaultVoicings('legacy')` appears in many older scripts. `.struct("x*4")` or `.struct("[x ~]*4")` imposes rhythm.
+
 ```strudel
-$: s("bd*4").bank("RolandTR909").lpf(800)
-$: note("c3*8").s("sawtooth").lpf(sine.range(200,800)).dist(.3)
+chord("<Cm Ab Bb F>/2").anchor("G4").voicing()
+  .struct("x*4").s("gm_drawbar_organ").gain(.4)
 ```
 
-### Drum & Bass
-Fast breakbeats (170-180 BPM), heavy sub-bass, chopped drum loops. Complex polyrhythms over simple bass patterns.
+## Arrangement
+
+Sections are built with `stack(...)`, then strung together with `arrange([bars, section], ...)`:
+
 ```strudel
-s("amen").chop(16).fast(2).sometimes(rev).cut(1)
-note("c1").s("sine").lpf(100).every(4, add(7))
+arrange(
+  [8, intro],
+  [8, verse],
+  [8, chorus],
+  [4, outro]
+).cpm(cpm)
 ```
 
-### Hip-hop
-Swing-based drums, prominent snare on 2&4, sampled loops. Often features vinyl/lo-fi processing and sparse arrangements.
+For sectional gating within continuous parts, use `.mask("<1 0 0 1>")` or `pickRestart([...])` keyed off a song timeline pattern:
+
 ```strudel
-$: s("bd ~ sd ~").swing()
-$: s("hh*8").gain(.2).crush(6)
-$: note("c3 eb3").s("piano").room(.8).lpf(800)
+const song = "<0@8 1@16 2@8>"
+song.pickRestart([sectionA, sectionB, sectionC])
 ```
 
-### Breakbeat
-Syncopated drum patterns, often based on "Amen" break. Mid-tempo groove with emphasis on rhythm over melody.
+## Effects Chains
+
+A consistent chain order emerges across scripts:
+**source → `.clip()` → envelope (`.attack/.decay/.sustain/.release` or `.adsr()`) → filter (`.lpf().lpenv().lpa().lpd()`) → `.delay(level:time:fb)` or `.delay().dt().dfb()` → `.room().rsize()` → `.gain()` / `.velocity()` → `.pan()`**
+
 ```strudel
-s("[bd ~] [~ sd] [bd bd] [~ sd]").sometimes(ply(2))
-note("c2 g1").s("bass").dist(.2)
+note("c4 e4 g4").s("sawtooth")
+  .attack(.05).release(.2).lpf(2000).lpenv(3)
+  .delay(".3:.225:.45").room(.6).gain(.5)
 ```
 
-### Dub
-Deep echo and reverb effects, syncopated riddims, prominent bass. Heavy use of delay feedback and spatial processing.
+Global tail-room is often applied via `all(x => x.room(.3))` at the end.
+
+## Recurring Habits
+
+- **`setcps(bpm/60/divisions)`** for non-4/4 feels; `setcpm(bpm/4)` shorthand otherwise.
+- **Mini-notation rests:** `~` standard, `-` also accepted; `_` extends previous note.
+- **Sustains/holds:** `@n` durations, `<>` for per-cycle alternation, `[a b]` for subdivisions, `*n`/`/n` for speed.
+- **`pickRestart([...])`** over `pick([...])` when sections must restart cleanly.
+- **`split` helper register** is a common community macro for `[note, penv]`, `[chord, velocity]` tuples.
+- **Polyphony via `.layer(x=>..., x=>...)`**, not multiple `stack` entries, when one source needs two timbres.
+- **Visualizers** appended at the end: `._pianoroll()`, `._scope()`, `._punchcard()`, `._pitchwheel()` — usually on the final `arrange`.
+- **GM instruments** dominate: `gm_oboe`, `gm_electric_bass_finger`, `gm_drawbar_organ`, `gm_pad_warm`, `gm_overdriven_guitar`, `gm_acoustic_guitar_steel`.
+- **Sample loading:** `samples({name: 'file.wav'}, 'https://...')` then `s("name").begin().end()` for chops; `.slice(n, "<...>")` for vocal cutting.
+- **Color tags** (`.color('yellow')`) are added per layer for visualizer clarity.
+- **Version footer** `// @version 1.x` at file end.
+
+## Idiomatic Snippets
+
+Drum stack with banked kit:
 ```strudel
-$: s("bd ~ sd ~").delay(.5).delayfeedback(.7)
-$: note("c2").s("bass").lpf(400).room(2)
+stack(
+  s("bd*4, ~ sd, hh*8").bank("RolandTR909"),
+  s("[~ cp]*2").bank("RolandTR808").gain(.5)
+).room(.2)
 ```
 
-### Synthwave
-Retro 80s aesthetic, arpeggiated synths, gated reverb drums. Nostalgic melodies with analog-style processing.
+Filtered synth bass:
 ```strudel
-note("0 2 4 7").scale("C:minor").s("sawtooth")
-  .lpf(1200).delay(.25).room(.8)
-s("bd ~ sd ~").room(1).roomsize(8)
+note("<c2 g1 eb1 f1>*4").s("gm_synth_bass_1")
+  .lpf(300).lpenv(4).lpa(.5).lpd(.1).gain(.7)
 ```
 
-### IDM
-Complex polyrhythms, glitchy textures, experimental sound design. Cerebral approach to electronic music with irregular patterns.
+Chord pad with anchored voicing:
 ```strudel
-s("bd(3,8,1) sd(5,16,3)").crush(rand.range(4,8))
-note(irand(12)).s("sine").lpf(rand.range(200,2000))
+chord("<Am F C G>/2").anchor("e4").voicing()
+  .s("gm_pad_warm").attack(.4).release(1).room(.6).gain(.4)
 ```
 
-### Minimal
-Stripped-down arrangements, subtle variations, focus on groove over complexity. Patience with gradual evolution of simple elements.
+Scale-based lead with delay:
 ```strudel
-$: s("bd*4").sometimes(gain(.3))
-$: note("c3").s("sine").every(8, add(7))
-$: s("hh*8").gain(.1).sometimes(gain(0))
+n("<0 2 4 5 4 2 0 -3>*2").scale("c4:minor")
+  .s("gm_oboe").delay(".3:.225:.45").room(.5).gain(.5)
+```
+
+Section arrangement:
+```strudel
+arrange(
+  [8, stack(drums, bass)],
+  [8, stack(drums, bass, lead)],
+  [4, stack(drums, bass, lead, vocals.mask("<1 0 0 1>"))]
+).cpm(120/4)
 ```

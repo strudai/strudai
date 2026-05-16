@@ -39,7 +39,10 @@ export interface StreamChatParams {
 }
 
 export interface ChatResult {
-  inputTokens: number;
+  /** Input tokens read from the prompt cache (cheap). */
+  cachedInputTokens: number;
+  /** Input tokens processed fresh — uncached input + cache writes. */
+  uncachedInputTokens: number;
   outputTokens: number;
   stopReason: string;
   content: Anthropic.ContentBlock[];
@@ -55,6 +58,12 @@ export async function streamChat({
   onToolCall,
   signal,
 }: StreamChatParams): Promise<ChatResult> {
+  // If the user already hit stop before this iteration started, bail now —
+  // addEventListener("abort") below would never fire for an already-aborted signal.
+  if (signal?.aborted) {
+    throw new DOMException("Aborted by user", "AbortError");
+  }
+
   const anthropic = getClient(apiKey);
 
   const stream = anthropic.messages.stream({
@@ -89,9 +98,16 @@ export async function streamChat({
     }
   }
 
+  // Split the input: cache reads are cheap; fresh input + cache writes are not.
+  const u = finalMessage.usage;
+  const cachedInputTokens = u.cache_read_input_tokens ?? 0;
+  const uncachedInputTokens =
+    u.input_tokens + (u.cache_creation_input_tokens ?? 0);
+
   return {
-    inputTokens: finalMessage.usage.input_tokens,
-    outputTokens: finalMessage.usage.output_tokens,
+    cachedInputTokens,
+    uncachedInputTokens,
+    outputTokens: u.output_tokens,
     stopReason: finalMessage.stop_reason ?? "end_turn",
     content: finalMessage.content,
   };

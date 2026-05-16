@@ -14,11 +14,11 @@ export const StrudelEditor = forwardRef<StrudelEditorHandle>(
         const el = document.getElementById("strudelEditor") as StrudelEditorElement | null;
         return el?.editor?.code ?? "";
       },
-      setCode(code: string) {
+      setCode(code: string, evaluate = true) {
         const el = document.getElementById("strudelEditor") as StrudelEditorElement | null;
         if (el?.editor) {
           el.editor.setCode(code);
-          el.editor.evaluate();
+          if (evaluate) el.editor.evaluate();
         }
       },
     }));

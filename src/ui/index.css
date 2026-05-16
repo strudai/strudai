@@ -146,8 +146,18 @@ strudel-editor {
 }
 
 /*
- * Strudel REPL renders <div class="cm-editor"> as a sibling of <strudel-editor>,
- * not a child, so we have to target .cm-editor at the document level.
+ * Strudel REPL inserts a plain <div> as a sibling right after <strudel-editor>
+ * and uses it as the editor root (the .cm-editor lives inside it). The REPL
+ * sets an inline `background-color: var(--background)` (a dark grey) on this
+ * div, so override it with !important to let the pure-black page show through.
+ */
+strudel-editor + div {
+  background-color: transparent !important;
+}
+
+/*
+ * .cm-editor is rendered inside that sibling div, not as a child of
+ * <strudel-editor>, so we target it at the document level.
  */
 .cm-editor {
   background: transparent !important;
@@ -277,7 +287,7 @@ html.theme-retro .cm-editor .cm-cursor {
 }
 
 /* CRT scanline overlay for chat + console panels.
-   The host already has position: absolute, which serves as the
+   The host already has position: fixed, which serves as the
    containing block for ::after. overflow: hidden clips the
    scanlines to the panel's rounded corners. */
 .retro-panel {
@@ -550,8 +560,8 @@ html.theme-retro .retro-panel::after {
   margin: 0 !important;
 }
 
-.tool-toggle input[type="checkbox"],
-.tool-group-header input[type="checkbox"] {
+/* [Y]/[N] styled checkboxes — all checkboxes inside the settings drawer */
+.settings-drawer-inner input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
   background: none;
@@ -564,19 +574,30 @@ html.theme-retro .retro-panel::after {
   color: var(--text-muted);
 }
 
-.tool-toggle input[type="checkbox"]::before,
-.tool-group-header input[type="checkbox"]::before {
+.settings-drawer-inner input[type="checkbox"]::before {
   content: "[N]";
 }
 
-.tool-toggle input[type="checkbox"]:checked,
-.tool-group-header input[type="checkbox"]:checked {
+.settings-drawer-inner input[type="checkbox"]:checked {
   color: var(--accent);
 }
 
-.tool-toggle input[type="checkbox"]:checked::before,
-.tool-group-header input[type="checkbox"]:checked::before {
+.settings-drawer-inner input[type="checkbox"]:checked::before {
   content: "[Y]";
+}
+
+/* Right-aligned setting control (e.g. the Auto-fix toggle) */
+.setting-control-right {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Usage breakdown rows inside the collapsible Usage section */
+.usage-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 /* --- Chat messages --- */

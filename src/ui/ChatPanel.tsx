@@ -7,10 +7,19 @@ import { streamChat } from "../agent/api";
 import { STATIC_PROMPT } from "../agent/system-prompt";
 import { getActiveTools, executeTool } from "../agent/tools";
 import { germanise } from "../agent/accent";
+import { subscribeToConsole, getErrorsSince } from "../agent/error-buffer";
 import * as store from "../store";
 
 interface ChatPanelProps {
   editorRef: React.RefObject<StrudelEditorHandle | null>;
+}
+
+const GREETING = germanise(
+  "Guten Tag, I am Hans Strudel. Tell me what you want to hear and I will make the beats."
+);
+
+function initialMessages(): Message[] {
+  return [{ role: "assistant", content: GREETING }];
 }
 
 function summarizeSearchResult(resultStr: string): string {
@@ -29,6 +38,11 @@ function summarizeToolResult(resultStr: string): string {
     const parsed = JSON.parse(resultStr);
     if (parsed.ok === false) return `failed: ${parsed.error ?? "unknown error"}`;
     if (parsed.ok === true) return "ok";
+    if (typeof parsed.errorCount === "number") {
+      return parsed.errorCount === 0
+        ? "console clean"
+        : `${parsed.errorCount} error${parsed.errorCount === 1 ? "" : "s"}`;
+    }
     if (Array.isArray(parsed.results)) {
       const n = parsed.results.length;
       return n === 0 ? "no matches" : `${n} result${n === 1 ? "" : "s"}`;
@@ -39,21 +53,28 @@ function summarizeToolResult(resultStr: string): string {
   }
 }
 
+function summarizeConsoleResult(resultStr: string): string {
+  try {
+    const parsed = JSON.parse(resultStr);
+    const n = parsed.errorCount ?? 0;
+    return n === 0 ? "console clean" : `${n} error${n === 1 ? "" : "s"}`;
+  } catch {
+    return "checked";
+  }
+}
+
 export function ChatPanel({ editorRef }: ChatPanelProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content:
-        germanise(
-          "Guten Tag, I am Hans Strudel. Tell me what you want to hear and I will make the beats."
-        ),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [visible, setVisible] = useState(false);
-  const [usage, setUsage] = useState({ inputTokens: 0, outputTokens: 0 });
+  const [usage, setUsage] = useState({
+    cachedInputTokens: 0,
+    uncachedInputTokens: 0,
+    outputTokens: 0,
+    contextTokens: 0,
+  });
   const [hasApiKey, setHasApiKey] = useState(!!store.getApiKey());
 
   // API-level messages (includes tool_use/tool_result blocks)
@@ -69,15 +90,25 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  function addUsage(input: number, output: number) {
+  function addUsage(cached: number, uncached: number, output: number) {
     setUsage((prev) => ({
-      inputTokens: prev.inputTokens + input,
+      cachedInputTokens: prev.cachedInputTokens + cached,
+      uncachedInputTokens: prev.uncachedInputTokens + uncached,
       outputTokens: prev.outputTokens + output,
+      // The latest request's full input is the context size at that point.
+      contextTokens: cached + uncached,
     }));
   }
 
-  async function handleSend() {
-    const text = input.trim();
+  function handleClearChat() {
+    if (isStreaming) return;
+    setMessages(initialMessages());
+    apiMessagesRef.current = [];
+    setUsage((prev) => ({ ...prev, contextTokens: 0 }));
+  }
+
+  async function handleSend(seedText?: string, isAutoFix = false) {
+    const text = (seedText ?? input).trim();
     if (!text || isStreaming) return;
 
     const apiKey = store.getApiKey();
@@ -86,13 +117,17 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       return;
     }
 
-    // Add user message to both display and API messages
-    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    // The API always needs a user message; the displayed bubble differs:
+    // an auto-fix trigger renders as a tool-style pill, not a user message.
+    const displayMessage: Message = isAutoFix
+      ? { role: "tool", toolName: "auto-fix", content: "Strudel error detected — fixing" }
+      : { role: "user", content: text };
+    setMessages((prev) => [...prev, displayMessage]);
     apiMessagesRef.current = [
       ...apiMessagesRef.current,
       { role: "user", content: text },
     ];
-    setInput("");
+    if (!seedText) setInput("");
     setIsStreaming(true);
 
     const abortController = new AbortController();
@@ -101,7 +136,9 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     try {
       await runAgentLoop(apiKey, abortController.signal);
     } catch (err) {
-      if (err instanceof Error && err.name !== "AbortError") {
+      // If the user hit stop, swallow whatever the abort threw (the SDK's
+      // abort error name isn't reliably "AbortError").
+      if (!abortController.signal.aborted && err instanceof Error) {
         setMessages((prev) => [
           ...prev,
           { role: "assistant", content: `Error: ${err.message}` },
@@ -112,6 +149,47 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       abortRef.current = null;
     }
   }
+
+  // Auto-fix watcher: when enabled, new errors trigger a fix turn.
+  const isStreamingRef = useRef(isStreaming);
+  useEffect(() => {
+    isStreamingRef.current = isStreaming;
+  }, [isStreaming]);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let windowStart = 0;
+    // Signature of the last error set auto-fix acted on — prevents re-triggering
+    // a fresh turn on the exact same unfixed errors (would loop forever).
+    let lastSignature = "";
+    const unsubscribe = subscribeToConsole(() => {
+      if (!store.getAutoFix()) return;
+      if (isStreamingRef.current) return;
+      if (!timer) windowStart = Date.now() - 500; // start of this error burst
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        // Re-check at fire time — state may have changed during debounce
+        if (isStreamingRef.current || !store.getAutoFix()) return;
+        if (!store.getApiKey()) return;
+        const errors = getErrorsSince(windowStart);
+        if (errors.length === 0) return;
+        const signature = [...new Set(errors)].sort().join("|||");
+        if (signature === lastSignature) return; // already tried these
+        lastSignature = signature;
+        handleSend(
+          "The Strudel REPL just threw an error. Check the editor and fix it.\n\n" +
+            errors.join("\n"),
+          true
+        );
+      }, 2000);
+    });
+    return () => {
+      unsubscribe();
+      if (timer) clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function buildSystem(code: string): Anthropic.TextBlockParam[] {
     const blocks: Anthropic.TextBlockParam[] = [
@@ -138,6 +216,8 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     let continueLoop = true;
 
     while (continueLoop) {
+      if (signal.aborted) break;
+
       // Add empty assistant message for streaming text
       let streamingText = "";
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
@@ -165,7 +245,11 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
         },
       });
 
-      addUsage(result.inputTokens, result.outputTokens);
+      addUsage(
+        result.cachedInputTokens,
+        result.uncachedInputTokens,
+        result.outputTokens
+      );
 
       // Remove empty assistant message if no text was streamed
       if (!streamingText) {
@@ -222,8 +306,10 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
               toolName: block.name,
               content: block.name === "strudel_rewrite_code" ? "Rewriting code..."
                 : block.name === "strudel_edit_code" ? "Editing code..."
+                : block.name === "strudel_read_console" ? "Checking console..."
                 : block.name === "strudel_docs_search" ? `Searching docs: ${(toolInput.query as string) ?? ""}`
                 : block.name === "sample_search" ? `Searching samples: ${(toolInput.query as string) ?? ""}`
+                : block.name === "example_search" ? `Searching examples: ${(toolInput.query as string) ?? ""}`
                 : block.name,
             },
           ]);
@@ -244,7 +330,8 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
               updated[updated.length - 1] = {
                 ...last,
                 content: (block.name === "strudel_rewrite_code" || block.name === "strudel_edit_code") ? "Code updated"
-                  : block.name === "strudel_docs_search" || block.name === "sample_search"
+                  : block.name === "strudel_read_console" ? summarizeConsoleResult(resultStr)
+                  : block.name === "strudel_docs_search" || block.name === "sample_search" || block.name === "example_search"
                     ? summarizeSearchResult(resultStr)
                     : resultStr,
               };
@@ -264,6 +351,9 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
           ...apiMessagesRef.current,
           { role: "user", content: toolResults },
         ];
+
+        // User may have hit stop while tools were running
+        if (signal.aborted) break;
       } else {
         continueLoop = false;
       }
@@ -279,7 +369,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
   return (
     <div
       data-open={visible ? "" : undefined}
-      className="retro-panel absolute top-4 right-4 z-20 flex flex-col bg-[var(--surface)] border border-[var(--surface-border)] rounded-[var(--radius)] shadow-[var(--shadow)] w-[110px] h-[30px] data-[open]:w-[360px] data-[open]:h-[calc(100vh-2rem)] transition-[width,height] duration-300 ease-out animate-panel-in"
+      className="retro-panel fixed top-4 right-4 z-20 flex flex-col bg-[var(--surface)] border border-[var(--surface-border)] rounded-[var(--radius)] shadow-[var(--shadow)] w-[110px] h-[30px] data-[open]:w-[360px] data-[open]:h-[calc(100vh-2rem)] transition-[width,height] duration-300 ease-out animate-panel-in"
     >
       {/* Header — collapsed shows [ HANS ], expanded shows settings + close */}
       {!visible ? (
@@ -291,13 +381,22 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
         </button>
       ) : (
         <div className="grid grid-cols-[1fr_auto_1fr] items-center pt-1 pr-1 pb-0 pl-2 shrink-0">
-          <button
-            onClick={() => setSettingsOpen(!settingsOpen)}
-            className={`${sharedBtn} text-[1.1rem] p-1 justify-self-start ${settingsOpen ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
-            title="Settings"
-          >
-            &#x2699;
-          </button>
+          <span className="flex items-center justify-self-start">
+            <button
+              onClick={() => setSettingsOpen(!settingsOpen)}
+              className={`${sharedBtn} text-[1.1rem] p-1 ${settingsOpen ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
+              title="Settings"
+            >
+              &#x2699;
+            </button>
+            <button
+              onClick={handleClearChat}
+              className={`${sharedBtn} text-[1rem] p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]`}
+              title="New chat"
+            >
+              &#x21bb;
+            </button>
+          </span>
           <span className="text-[0.8rem] font-bold text-[var(--text-primary)] justify-self-center">
             [ HANS ]
           </span>
@@ -349,7 +448,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
               </button>
             ) : (
               <button
-                onClick={handleSend}
+                onClick={() => handleSend()}
                 disabled={!input.trim() || !hasApiKey}
                 className="px-4 py-2 rounded-md cursor-pointer text-[0.9rem] border-0 transition-colors duration-300 bg-[var(--accent)] text-black font-bold enabled:hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
               >
