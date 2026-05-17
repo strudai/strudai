@@ -44,7 +44,7 @@ export function setToolToggle(name: string, enabled: boolean): void {
 }
 
 export function getTheme(): Theme {
-  return localStorage.getItem(THEME_KEY) === "retro" ? "retro" : "classic";
+  return localStorage.getItem(THEME_KEY) === "classic" ? "classic" : "retro";
 }
 
 export function setTheme(theme: Theme): void {

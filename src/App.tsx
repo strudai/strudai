@@ -53,9 +53,10 @@ const TOURS: Tour[] = [
               rel="noreferrer"
               style={{ color: "var(--accent)", textDecoration: "underline" }}
             >
-              console.anthropic.com
-            </a>
+              console.anthropic.com            </a>
             . Enter it in the settings panel (&#x2699;) inside the chat.
+
+            Note that you will be billed by Anthropic for API usage, so use the assistant wisely!
           </span>
         ),
       },
@@ -73,7 +74,7 @@ const TOURS: Tour[] = [
             >
               Strudel
             </a>
-            , a live coding environment by Alex McLean and contributors. If you
+            , a live coding environment by Alex McLean, Felix Roos and contributors. If you
             enjoy it, please consider{" "}
             <a
               href="https://opencollective.com/tidalcycles"
