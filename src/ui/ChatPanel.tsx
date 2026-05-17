@@ -3,12 +3,28 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { Message, StrudelEditorHandle } from "../agent/types";
 import { MessageBubble } from "./MessageBubble";
 import { SettingsDrawer } from "./SettingsDrawer";
+import { SetPanel } from "./SetPanel";
 import { streamChat } from "../agent/api";
 import { STATIC_PROMPT } from "../agent/system-prompt";
 import { getActiveTools, executeTool } from "../agent/tools";
 import { germanise } from "../agent/accent";
 import { subscribeToConsole, getErrorsSince } from "../agent/error-buffer";
+import {
+  subscribe as subscribeSet,
+  isActive as isSetActive,
+  getPlan as getSetPlan,
+  currentBar as setCurrentBar,
+  totalBars as setTotalBars,
+  markersUpTo as setMarkersUpTo,
+  stopSet,
+  clearPlan,
+  type SetMarker,
+} from "../agent/set-state";
 import * as store from "../store";
+
+type DisplayHint =
+  | { kind: "auto-fix" }
+  | { kind: "set-trigger"; display: string };
 
 interface ChatPanelProps {
   editorRef: React.RefObject<StrudelEditorHandle | null>;
@@ -105,9 +121,10 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     setMessages(initialMessages());
     apiMessagesRef.current = [];
     setUsage((prev) => ({ ...prev, contextTokens: 0 }));
+    clearPlan();
   }
 
-  async function handleSend(seedText?: string, isAutoFix = false) {
+  async function handleSend(seedText?: string, hint?: DisplayHint) {
     const text = (seedText ?? input).trim();
     if (!text || isStreaming) return;
 
@@ -118,10 +135,13 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     }
 
     // The API always needs a user message; the displayed bubble differs:
-    // an auto-fix trigger renders as a tool-style pill, not a user message.
-    const displayMessage: Message = isAutoFix
-      ? { role: "tool", toolName: "auto-fix", content: "Strudel error detected — fixing" }
-      : { role: "user", content: text };
+    // auto-fix and set-trigger render as tool-style pills, not user messages.
+    const displayMessage: Message =
+      hint?.kind === "auto-fix"
+        ? { role: "tool", toolName: "auto-fix", content: "Strudel error detected — fixing" }
+        : hint?.kind === "set-trigger"
+        ? { role: "tool", toolName: "set-trigger", content: hint.display }
+        : { role: "user", content: text };
     setMessages((prev) => [...prev, displayMessage]);
     apiMessagesRef.current = [
       ...apiMessagesRef.current,
@@ -180,7 +200,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
         handleSend(
           "The Strudel REPL just threw an error. Check the editor and fix it.\n\n" +
             errors.join("\n"),
-          true
+          { kind: "auto-fix" }
         );
       }, 2000);
     });
@@ -190,6 +210,86 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Set-mode bar watcher. While a set is active, tick every 500ms: compute the
+  // current absolute bar, pull any markers whose time has come, and feed each
+  // into the same agent loop as a tool-pill set-trigger. If the agent is mid-
+  // stream when a marker fires we abort and queue the trigger; it drains in
+  // the next tick (or when streaming flips off).
+  const triggerQueueRef = useRef<Array<{ prompt: string; display: string }>>([]);
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    function buildTrigger(marker: SetMarker) {
+      const plan = getSetPlan();
+      if (!plan) return null;
+      const song = plan.songs[marker.songIndex];
+      const section = song.sections[marker.sectionIndex];
+      const display = `[bar ${marker.absoluteBar} · ${song.name}] ${section.note}`;
+      let prompt = `[set/bar ${marker.absoluteBar}, song "${song.name}" (bar ${section.bar}/${song.bars})]\n${section.note}`;
+      if (marker.isFirstSectionOfSong) {
+        const intro =
+          marker.songIndex === 0
+            ? `This is bar 0 of the set — first song "${song.name}". Use strudel_rewrite_code. Start the code with setcpm(${plan.bpm}). Foundation: ${song.foundation}`
+            : `Start of next song "${song.name}". Use strudel_rewrite_code for a fresh foundation (keep setcpm(${plan.bpm}) at the top). Foundation: ${song.foundation}`;
+        prompt += `\n\n${intro}`;
+      }
+      return { prompt, display };
+    }
+
+    function tick() {
+      if (!isSetActive()) return;
+      const total = setTotalBars();
+      const bar = setCurrentBar();
+      if (bar > total) {
+        stopSet();
+        return;
+      }
+      const due = setMarkersUpTo(bar);
+      for (const m of due) {
+        const t = buildTrigger(m);
+        if (t) triggerQueueRef.current.push(t);
+      }
+      // A fresh marker mid-stream cancels the current reply so the new section
+      // gets a clean turn (mirrors v1's "cancel previous performer task").
+      if (due.length > 0 && isStreamingRef.current) {
+        abortRef.current?.abort();
+      }
+      if (!isStreamingRef.current && triggerQueueRef.current.length > 0) {
+        const next = triggerQueueRef.current.shift()!;
+        handleSend(next.prompt, { kind: "set-trigger", display: next.display });
+      }
+    }
+
+    function syncTimer() {
+      if (isSetActive() && !timer) {
+        timer = setInterval(tick, 500);
+        tick(); // fire bar 0 immediately
+      } else if (!isSetActive() && timer) {
+        clearInterval(timer);
+        timer = null;
+        triggerQueueRef.current = [];
+      }
+    }
+
+    const unsubscribe = subscribeSet(syncTimer);
+    syncTimer();
+    return () => {
+      unsubscribe();
+      if (timer) clearInterval(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Drain any queued set triggers as soon as streaming finishes.
+  useEffect(() => {
+    if (isStreaming) return;
+    if (triggerQueueRef.current.length === 0) return;
+    const next = triggerQueueRef.current.shift()!;
+    handleSend(next.prompt, { kind: "set-trigger", display: next.display });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isStreaming]);
+
 
   function buildSystem(code: string): Anthropic.TextBlockParam[] {
     const blocks: Anthropic.TextBlockParam[] = [
@@ -368,6 +468,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
 
   return (
     <div
+      id="hans-panel"
       data-open={visible ? "" : undefined}
       className="retro-panel fixed top-4 right-4 z-20 flex flex-col bg-[var(--surface)] border border-[var(--surface-border)] rounded-[var(--radius)] shadow-[var(--shadow)] w-[110px] h-[30px] data-[open]:w-[360px] data-[open]:h-[calc(100vh-2rem)] transition-[width,height] duration-300 ease-out animate-panel-in"
     >
@@ -380,7 +481,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
           [ HANS ]
         </button>
       ) : (
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center pt-1 pr-1 pb-0 pl-2 shrink-0">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center h-[30px] pr-1 pl-2 shrink-0">
           <span className="flex items-center justify-self-start">
             <button
               onClick={() => setSettingsOpen(!settingsOpen)}
@@ -402,7 +503,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
           </span>
           <button
             onClick={() => setVisible(false)}
-            className={`${sharedBtn} text-2xl leading-none px-3 py-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] justify-self-end`}
+            className={`${sharedBtn} text-2xl leading-none px-3 py-0 text-[var(--text-muted)] hover:text-[var(--text-primary)] justify-self-end`}
           >
             &times;
           </button>
@@ -417,6 +518,9 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
             onApiKeyChange={(key) => setHasApiKey(!!key)}
             usage={usage}
           />
+
+          {/* Set plan (visible only when a plan exists) */}
+          <SetPanel />
 
           {/* Messages */}
           <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-2 rounded-t-[var(--radius)] animate-body-in">
