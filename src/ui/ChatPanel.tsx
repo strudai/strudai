@@ -290,6 +290,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isStreaming]);
 
+
   function buildSystem(code: string): Anthropic.TextBlockParam[] {
     const blocks: Anthropic.TextBlockParam[] = [
       {

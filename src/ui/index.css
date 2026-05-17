@@ -801,5 +801,6 @@ html.theme-retro .set-section.current {
 .set-section-note:hover { border-bottom-color: var(--text-muted); }
 .set-section-note:focus { border-bottom-color: var(--accent); color: var(--text-primary); }
 
+
 /* --- Chat messages --- */
 
