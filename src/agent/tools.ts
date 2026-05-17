@@ -1,6 +1,15 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { StrudelEditorHandle } from "./types";
 import { getRecentConsole } from "./error-buffer";
+import {
+  setPlan as setActivePlan,
+  startSet as activateSet,
+  stopSet as deactivateSet,
+  getPlan,
+  totalBars,
+  type SetPlan,
+  type SetSong,
+} from "./set-state";
 
 const CONSOLE_READ_WAIT_MS = 1000;
 const CONSOLE_READ_COUNT = 10;
@@ -29,6 +38,9 @@ export const TOOL_META: ToolMeta[] = [
   { name: "sample_search", label: "Sample search", description: "Find Strudel sample packs and sounds", category: "Research" },
   { name: "example_search", label: "Example search", description: "Literal text search across community Strudel patterns", category: "Research" },
   { name: "web_search", label: "Web search", description: "Search the web (server-side, billed)", category: "Research" },
+  { name: "plan_set", label: "Plan set", description: "Define the structure of a live set", category: "Set" },
+  { name: "start_set", label: "Start set", description: "Begin live set playback and bar-aligned triggers", category: "Set" },
+  { name: "stop_set", label: "Stop set", description: "End the active live set", category: "Set" },
 ];
 
 export function getActiveTools(enabled: Record<string, boolean>): Anthropic.ToolUnion[] {
@@ -135,6 +147,88 @@ export const TOOLS: Anthropic.ToolUnion[] = [
         },
       },
       required: ["query"],
+    },
+  },
+  {
+    name: "plan_set",
+    description:
+      "Define the structure of a live set. Use when the user asks for a set, " +
+      "mix, DJ session, or extended performance. Provide a list of songs, " +
+      "each with a bar count, a foundation (sound palette / key / base " +
+      "patterns), and bar-positioned sections with instructions for what " +
+      "should change at that point. Calling this replaces any existing plan.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        title: { type: "string", description: "Title of the set" },
+        genre: { type: "string", description: "Genre / vibe" },
+        bpm: { type: "number", description: "Tempo in beats per minute" },
+        songs: {
+          type: "array",
+          description: "Songs played in order",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              bars: {
+                type: "number",
+                description: "Total bars in the song (typical 32–64)",
+              },
+              foundation: {
+                type: "string",
+                description:
+                  "Sound palette, key, samples, base patterns — set up at song start.",
+              },
+              sections: {
+                type: "array",
+                description:
+                  "Section markers within the song. Bar offsets are 0-relative within the song. Typical: 3–6 sections every 8–16 bars.",
+                items: {
+                  type: "object",
+                  properties: {
+                    bar: {
+                      type: "number",
+                      description: "Bar offset within the song (0-relative)",
+                    },
+                    note: {
+                      type: "string",
+                      description:
+                        "Instruction for what should happen at this bar (e.g. 'bring in kick', 'drop everything but bass').",
+                    },
+                  },
+                  required: ["bar", "note"],
+                },
+              },
+            },
+            required: ["name", "bars", "foundation", "sections"],
+          },
+        },
+      },
+      required: ["title", "genre", "bpm", "songs"],
+    },
+  },
+  {
+    name: "start_set",
+    description:
+      "Activate the planned set. Bar-aligned trigger messages will start " +
+      "arriving immediately (bar 0 first — establish the foundation and call " +
+      "setcpm(bpm)). Only call this after plan_set, and ideally after the " +
+      "user confirms they want to start.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "stop_set",
+    description:
+      "End the active live set. No more bar triggers will fire; the plan " +
+      "stays visible but inactive.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
     },
   },
 ];
@@ -333,7 +427,87 @@ export async function executeTool(
     case "example_search": {
       return exampleSearch(input.query as string);
     }
+    case "plan_set": {
+      return planSet(input);
+    }
+    case "start_set": {
+      return startSetTool();
+    }
+    case "stop_set": {
+      return stopSetTool();
+    }
     default:
       return JSON.stringify({ ok: false, error: `Unknown tool: ${name}` });
   }
+}
+
+function validatePlanInput(input: Record<string, unknown>): SetPlan | string {
+  const title = input.title;
+  const genre = input.genre;
+  const bpm = input.bpm;
+  const songsRaw = input.songs;
+  if (typeof title !== "string" || !title.trim()) return "title required";
+  if (typeof genre !== "string" || !genre.trim()) return "genre required";
+  if (typeof bpm !== "number" || bpm <= 0) return "bpm must be > 0";
+  if (!Array.isArray(songsRaw) || songsRaw.length === 0) return "songs must be a non-empty array";
+
+  const songs: SetSong[] = [];
+  for (let i = 0; i < songsRaw.length; i++) {
+    const raw = songsRaw[i] as Record<string, unknown>;
+    const name = raw?.name;
+    const bars = raw?.bars;
+    const foundation = raw?.foundation;
+    const sectionsRaw = raw?.sections;
+    if (typeof name !== "string" || !name.trim()) return `songs[${i}].name required`;
+    if (typeof bars !== "number" || bars <= 0) return `songs[${i}].bars must be > 0`;
+    if (typeof foundation !== "string") return `songs[${i}].foundation must be a string`;
+    if (!Array.isArray(sectionsRaw) || sectionsRaw.length === 0) {
+      return `songs[${i}].sections must be a non-empty array`;
+    }
+    const sections: { bar: number; note: string }[] = [];
+    for (let j = 0; j < sectionsRaw.length; j++) {
+      const sr = sectionsRaw[j] as Record<string, unknown>;
+      const bar = sr?.bar;
+      const note = sr?.note;
+      if (typeof bar !== "number" || bar < 0 || bar >= bars) {
+        return `songs[${i}].sections[${j}].bar must be in [0, ${bars})`;
+      }
+      if (typeof note !== "string" || !note.trim()) {
+        return `songs[${i}].sections[${j}].note required`;
+      }
+      sections.push({ bar, note });
+    }
+    songs.push({ name, bars, foundation, sections });
+  }
+  return { title, genre, bpm, songs };
+}
+
+function planSet(input: Record<string, unknown>): string {
+  const result = validatePlanInput(input);
+  if (typeof result === "string") {
+    return JSON.stringify({ ok: false, error: result });
+  }
+  setActivePlan(result);
+  const total = totalBars();
+  const minutes = (total * 240) / result.bpm / 60;
+  return JSON.stringify({
+    ok: true,
+    summary: `${result.title} — ${result.songs.length} song${result.songs.length === 1 ? "" : "s"}, ${result.bpm} BPM, ${total} bars (~${minutes.toFixed(1)}m)`,
+  });
+}
+
+function startSetTool(): string {
+  if (!getPlan()) {
+    return JSON.stringify({ ok: false, error: "no plan — call plan_set first" });
+  }
+  activateSet();
+  return JSON.stringify({
+    ok: true,
+    summary: `Set started — bar 0 of ${totalBars()}`,
+  });
+}
+
+function stopSetTool(): string {
+  deactivateSet();
+  return JSON.stringify({ ok: true });
 }
