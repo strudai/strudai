@@ -10,6 +10,9 @@ import { OnboardingCard } from "./ui/OnboardingCard";
 
 const ONBOARDING_KEY = "strudelgpt_onboarding_done";
 
+// Step index at which #hans-panel should be highlighted (0-based).
+const HANS_STEP_INDEX = 2;
+
 const TOURS: Tour[] = [
   {
     tour: "welcome",
@@ -35,10 +38,26 @@ const TOURS: Tour[] = [
       {
         icon: null,
         title: "Hans Strudel",
-        content:
-          "The [ HANS ] panel in the top-right corner opens a chat with an AI assistant. Describe the music you want — Hans will write or modify the code for you. An Anthropic API key is required.",
-        selector: "#hans-panel",
-        side: "left",
+        content: (
+          <span>
+            The <strong style={{ color: "var(--text-primary)" }}>[ HANS ]</strong>{" "}
+            panel in the top-right corner opens a chat with an AI assistant.
+            Describe the music you want and Hans will write or modify the code
+            for you.
+            <br />
+            <br />
+            An Anthropic API key is required. You can create one at{" "}
+            <a
+              href="https://console.anthropic.com/settings/keys"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "var(--accent)", textDecoration: "underline" }}
+            >
+              console.anthropic.com
+            </a>
+            . Enter it in the settings panel (&#x2699;) inside the chat.
+          </span>
+        ),
       },
       {
         icon: null,
@@ -77,13 +96,27 @@ function AppContent({
 }: {
   editorRef: React.RefObject<StrudelEditorHandle | null>;
 }) {
-  const { startNextStep } = useNextStep();
+  const { startNextStep, currentStep, currentTour, isNextStepVisible } =
+    useNextStep();
 
+  // Auto-start tour on first visit.
   useEffect(() => {
     if (!localStorage.getItem(ONBOARDING_KEY)) {
       startNextStep("welcome");
     }
   }, [startNextStep]);
+
+  // Pulse-highlight the Hans panel while that step is active.
+  useEffect(() => {
+    const el = document.getElementById("hans-panel");
+    if (!el) return;
+    const active =
+      isNextStepVisible &&
+      currentTour === "welcome" &&
+      currentStep === HANS_STEP_INDEX;
+    el.classList.toggle("onboarding-highlight", active);
+    return () => el.classList.remove("onboarding-highlight");
+  }, [isNextStepVisible, currentTour, currentStep]);
 
   return (
     <>

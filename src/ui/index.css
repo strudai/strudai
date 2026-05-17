@@ -19,6 +19,17 @@
     from { opacity: 0; }
     to   { opacity: 1; }
   }
+
+  --animate-onboarding-pulse: onboarding-pulse 1.6s ease-in-out infinite;
+  @keyframes onboarding-pulse {
+    0%, 100% { box-shadow: 0 0 0 2px var(--accent), 0 0 10px var(--accent); }
+    50%       { box-shadow: 0 0 0 3px var(--accent), 0 0 22px var(--accent); }
+  }
+}
+
+.onboarding-highlight {
+  animation: var(--animate-onboarding-pulse) !important;
+  z-index: 1001 !important;
 }
 
 /* --- Classic theme (default) — v1 purple/blue on black --- */
@@ -599,6 +610,196 @@ html.theme-retro .retro-panel::after {
   font-size: 0.75rem;
   color: var(--text-muted);
 }
+
+/* --- Set panel --- */
+
+.set-panel {
+  border-bottom: 1px solid var(--surface-border);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.set-panel-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0.4rem 0.75rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.set-panel-summary:hover { color: var(--text-primary); }
+
+.set-panel-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 50%;
+}
+
+.set-panel-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.set-panel-bar { font-variant-numeric: tabular-nums; }
+
+.set-panel:has(.set-panel-body-wrapper[data-open]) .tools-chevron {
+  transform: rotate(90deg);
+}
+
+.set-panel-body-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.set-panel-body-wrapper[data-open] { grid-template-rows: 1fr; }
+
+.set-panel-body {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0 0.75rem;
+  transition: padding 0.25s ease;
+}
+
+.set-panel-body-wrapper[data-open] .set-panel-body {
+  padding: 0.4rem 0.75rem 0.6rem;
+}
+
+.set-panel-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.set-panel-genre {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.set-panel-btn {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.72rem;
+  border: 1px solid var(--surface-border);
+  background: var(--input-bg);
+  color: var(--text-secondary);
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.set-panel-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.set-panel-btn-primary {
+  background: var(--accent);
+  color: black;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.set-panel-btn-primary:hover {
+  background: var(--accent-hover);
+  color: black;
+}
+
+.set-panel-songs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.set-song {
+  border-left: 2px solid var(--surface-border);
+  padding-left: 0.5rem;
+}
+
+.set-song.current { border-left-color: var(--accent); }
+
+.set-song-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.set-song-name { font-weight: 600; color: var(--text-primary); }
+
+.set-song-bars {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.set-song-foundation {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 0.1rem 0 0.2rem;
+}
+
+.set-sections {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.set-section {
+  display: grid;
+  grid-template-columns: 2.2rem 1fr;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.3rem;
+  border-radius: 0.2rem;
+  align-items: baseline;
+}
+
+.set-section.current {
+  background: rgba(124, 92, 191, 0.18);
+}
+
+html.theme-retro .set-section.current {
+  background: rgba(255, 176, 0, 0.18);
+}
+
+.set-section-bar {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.set-section-note {
+  color: var(--text-secondary);
+  outline: none;
+  border-bottom: 1px dashed transparent;
+  cursor: text;
+}
+
+.set-section-note:hover { border-bottom-color: var(--text-muted); }
+.set-section-note:focus { border-bottom-color: var(--accent); color: var(--text-primary); }
 
 /* --- Chat messages --- */
 
