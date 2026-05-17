@@ -368,6 +368,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
 
   return (
     <div
+      id="hans-panel"
       data-open={visible ? "" : undefined}
       className="retro-panel fixed top-4 right-4 z-20 flex flex-col bg-[var(--surface)] border border-[var(--surface-border)] rounded-[var(--radius)] shadow-[var(--shadow)] w-[110px] h-[30px] data-[open]:w-[360px] data-[open]:h-[calc(100vh-2rem)] transition-[width,height] duration-300 ease-out animate-panel-in"
     >
@@ -380,7 +381,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
           [ HANS ]
         </button>
       ) : (
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center pt-1 pr-1 pb-0 pl-2 shrink-0">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center h-[30px] pr-1 pl-2 shrink-0">
           <span className="flex items-center justify-self-start">
             <button
               onClick={() => setSettingsOpen(!settingsOpen)}
@@ -402,7 +403,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
           </span>
           <button
             onClick={() => setVisible(false)}
-            className={`${sharedBtn} text-2xl leading-none px-3 py-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] justify-self-end`}
+            className={`${sharedBtn} text-2xl leading-none px-3 py-0 text-[var(--text-muted)] hover:text-[var(--text-primary)] justify-self-end`}
           >
             &times;
           </button>
