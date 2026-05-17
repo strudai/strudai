@@ -6,6 +6,7 @@ import { Console } from "./ui/Console";
 import * as store from "./store";
 import { NextStepProvider, NextStepReact, useNextStep } from "nextstepjs";
 import type { Tour } from "nextstepjs";
+import { OnboardingCard } from "./ui/OnboardingCard";
 
 const ONBOARDING_KEY = "strudelgpt_onboarding_done";
 
@@ -14,32 +15,58 @@ const TOURS: Tour[] = [
     tour: "welcome",
     steps: [
       {
-        icon: "🎵",
-        title: "Willkommen!",
-        content:
-          "I am Hans Strudel — your AI companion for live-coded music. Let me show you around.",
-        showSkip: true,
-        showControls: true,
+        icon: null,
+        title: "Welcome to StrudAI",
+        content: (
+          <span>
+            StrudAI is an AI assistant for{" "}
+            <strong style={{ color: "var(--text-primary)" }}>Strudel</strong> —
+            a browser-based live coding environment for music. Write patterns in
+            the editor and the audio plays instantly, no installation required.
+          </span>
+        ),
       },
       {
-        icon: "🎹",
+        icon: null,
         title: "The Editor",
         content:
-          "Write Strudel patterns here. Press the play button or Ctrl+Enter to hear your music.",
-        selector: "#strudelEditor",
-        side: "top",
-        showSkip: true,
-        showControls: true,
+          "The code editor occupies the full background. Write Strudel patterns there and use the play controls to hear them. You can edit while the music is running.",
       },
       {
-        icon: "💬",
-        title: "Talk to Hans",
+        icon: null,
+        title: "Hans Strudel",
         content:
-          "Click [HANS] to open my chat. Describe what you want to hear and I will code it for you.",
+          "The [ HANS ] panel in the top-right corner opens a chat with an AI assistant. Describe the music you want — Hans will write or modify the code for you. An Anthropic API key is required.",
         selector: "#hans-panel",
         side: "left",
-        showSkip: true,
-        showControls: true,
+      },
+      {
+        icon: null,
+        title: "Built on Strudel",
+        content: (
+          <span>
+            StrudAI is a thin wrapper around{" "}
+            <a
+              href="https://strudel.cc"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "var(--accent)", textDecoration: "underline" }}
+            >
+              Strudel
+            </a>
+            , a live coding environment by Alex McLean and contributors. If you
+            enjoy it, please consider{" "}
+            <a
+              href="https://opencollective.com/tidalcycles"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "var(--accent)", textDecoration: "underline" }}
+            >
+              supporting Tidal Cycles
+            </a>
+            .
+          </span>
+        ),
       },
     ],
   },
@@ -86,8 +113,11 @@ export function App() {
     <NextStepProvider>
       <NextStepReact
         steps={TOURS}
+        cardComponent={OnboardingCard}
         onComplete={markDone}
         onSkip={markDone}
+        shadowRgb="0, 0, 0"
+        shadowOpacity="0.6"
         disableConsoleLogs
       >
         <AppContent editorRef={editorRef} />
