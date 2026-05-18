@@ -47,6 +47,9 @@
   --accent: #7c5cbf;
   --accent-hover: #9474d4;
 
+  --set-accent: #e8703a;
+  --set-accent-hover: #f08654;
+
   --bubble-user: #7c5cbf;
   --bubble-user-text: #f0f0f8;
   --bubble-assistant: rgba(255, 255, 255, 0.08);
@@ -72,6 +75,9 @@ html.theme-retro {
 
   --accent: #ffb000;
   --accent-hover: #ffd166;
+
+  --set-accent: var(--accent);
+  --set-accent-hover: var(--accent-hover);
 
   --bubble-user: rgba(255, 176, 0, 0.16);
   --bubble-user-text: #ffb000;
@@ -124,15 +130,24 @@ html.theme-retro .crt-overlay::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(
-    to right,
-    rgba(255, 0, 0, 0.04) 0px,
-    rgba(255, 0, 0, 0.04) 1px,
-    rgba(0, 255, 0, 0.04) 1px,
-    rgba(0, 255, 0, 0.04) 2px,
-    rgba(0, 0, 255, 0.04) 2px,
-    rgba(0, 0, 255, 0.04) 3px
-  );
+  background:
+    repeating-linear-gradient(
+      to right,
+      rgba(255, 0, 0, 0.04) 0px,
+      rgba(255, 0, 0, 0.04) 1px,
+      rgba(0, 255, 0, 0.04) 1px,
+      rgba(0, 255, 0, 0.04) 2px,
+      rgba(0, 0, 255, 0.04) 2px,
+      rgba(0, 0, 255, 0.04) 3px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 2px,
+      rgba(0, 0, 0, 0.22) 2px,
+      rgba(0, 0, 0, 0.22) 3px
+    );
+  mix-blend-mode: multiply;
   pointer-events: none;
 }
 
@@ -214,22 +229,6 @@ html.theme-retro .cm-editor .cm-gutters {
   font-family: "Space Mono", monospace !important;
 }
 
-/* Retro: CRT scanlines overlay on top of the editor */
-html.theme-retro .cm-editor::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0px,
-    transparent 2px,
-    rgba(0, 0, 0, 0.25) 2px,
-    rgba(0, 0, 0, 0.25) 3px
-  );
-  z-index: 2;
-  mix-blend-mode: multiply;
-}
 
 .cm-editor .cm-gutters {
   background: transparent !important;
@@ -297,29 +296,8 @@ html.theme-retro .cm-editor .cm-cursor {
   background-color: rgba(0, 255, 65, 0.25) !important;
 }
 
-/* CRT scanline overlay for chat + console panels.
-   The host already has position: fixed, which serves as the
-   containing block for ::after. overflow: hidden clips the
-   scanlines to the panel's rounded corners. */
 .retro-panel {
   overflow: hidden;
-}
-
-html.theme-retro .retro-panel::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0px,
-    transparent 2px,
-    rgba(0, 0, 0, 0.2) 2px,
-    rgba(0, 0, 0, 0.2) 3px
-  );
-  mix-blend-mode: multiply;
-  border-radius: inherit;
-  z-index: 1;
 }
 
 /* --- Chat toggle --- */
@@ -615,6 +593,7 @@ html.theme-retro .retro-panel::after {
 
 .set-panel {
   border-bottom: 1px solid var(--surface-border);
+  border-left: 2px solid var(--set-accent);
   font-size: 0.8rem;
   color: var(--text-secondary);
 }
@@ -702,19 +681,19 @@ html.theme-retro .retro-panel::after {
 }
 
 .set-panel-btn:hover {
-  border-color: var(--accent);
+  border-color: var(--set-accent);
   color: var(--text-primary);
 }
 
 .set-panel-btn-primary {
-  background: var(--accent);
+  background: var(--set-accent);
   color: black;
-  border-color: var(--accent);
+  border-color: var(--set-accent);
   font-weight: 600;
 }
 
 .set-panel-btn-primary:hover {
-  background: var(--accent-hover);
+  background: var(--set-accent-hover);
   color: black;
 }
 
@@ -754,7 +733,7 @@ html.theme-retro .retro-panel::after {
   padding-left: 0.5rem;
 }
 
-.set-song.current { border-left-color: var(--accent); }
+.set-song.current { border-left-color: var(--set-accent); }
 
 .set-song-header {
   display: flex;
@@ -798,11 +777,7 @@ html.theme-retro .retro-panel::after {
 }
 
 .set-section.current {
-  background: rgba(124, 92, 191, 0.18);
-}
-
-html.theme-retro .set-section.current {
-  background: rgba(255, 176, 0, 0.18);
+  background: color-mix(in srgb, var(--set-accent) 18%, transparent);
 }
 
 .set-section-bar {
@@ -819,7 +794,7 @@ html.theme-retro .set-section.current {
 }
 
 .set-section-note:hover { border-bottom-color: var(--text-muted); }
-.set-section-note:focus { border-bottom-color: var(--accent); color: var(--text-primary); }
+.set-section-note:focus { border-bottom-color: var(--set-accent); color: var(--text-primary); }
 
 
 /* --- Chat messages --- */
