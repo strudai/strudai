@@ -32,8 +32,20 @@ const TOURS: Tour[] = [
       {
         icon: null,
         title: "The Editor",
-        content:
-          "The code editor occupies the full background. Write Strudel patterns there and use the play controls to hear them. You can edit while the music is running.",
+        content: (
+          <span>
+            The code editor occupies the full background. Write Strudel patterns
+            there — the audio updates live as you run them.
+            <br />
+            <br />
+            <strong style={{ color: "var(--text-primary)" }}>
+              Ctrl+Enter
+            </strong>{" "}
+            to play &nbsp;·&nbsp;{" "}
+            <strong style={{ color: "var(--text-primary)" }}>Ctrl+.</strong> to
+            stop
+          </span>
+        ),
       },
       {
         icon: null,
@@ -57,6 +69,32 @@ const TOURS: Tour[] = [
             . Enter it in the settings panel (&#x2699;) inside the chat.
 
             Note that you will be billed by Anthropic for API usage, so use the assistant wisely!
+          </span>
+        ),
+      },
+      {
+        icon: null,
+        title: "What to ask Hans",
+        content: (
+          <span>
+            Hans reads the code in your editor before every reply — no need to
+            explain what's already there.
+            <br />
+            <br />
+            <strong style={{ color: "var(--text-primary)" }}>
+              Songs
+            </strong>{" "}
+            — "write me a dark techno groove at 130 BPM"
+            <br />
+            <strong style={{ color: "var(--text-primary)" }}>
+              Visuals
+            </strong>{" "}
+            — "add Hydra visuals that react to the kick"
+            <br />
+            <strong style={{ color: "var(--text-primary)" }}>
+              Live sets
+            </strong>{" "}
+            — "plan a 3-song set and play it"
           </span>
         ),
       },
@@ -119,6 +157,7 @@ function AppContent({
     return () => el.classList.remove("onboarding-highlight");
   }, [isNextStepVisible, currentTour, currentStep]);
 
+
   return (
     <>
       <StrudelEditor ref={editorRef} />
@@ -152,6 +191,7 @@ export function App() {
         onSkip={markDone}
         shadowRgb="0, 0, 0"
         shadowOpacity="0.6"
+        clickThroughOverlay
         disableConsoleLogs
       >
         <AppContent editorRef={editorRef} />
