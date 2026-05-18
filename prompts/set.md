@@ -18,6 +18,7 @@ Once `start_set` is called, bar-aligned trigger messages arrive in chat tagged `
 
 - The **first trigger of each song** is the foundation. Use `strudel_rewrite_code` here — establish the sound palette, set `setcpm(bpm)` at the top, lay down base patterns. For the very first song, you're starting from scratch. For later songs, write a fresh foundation but keep it in the same BPM so the transition flows.
 - **Subsequent triggers within a song** should be `strudel_edit_code` — change one element, add a layer, swap a sound. Keep the music playing; don't `strudel_rewrite_code` mid-song unless something is genuinely broken.
+- **Visuals**: include Hydra visuals in every rewrite and evolve them on subsequent edits. Call `await initHydra()` at the top, then add a Hydra chain that matches the energy and vibe of the section — audio-reactive where it fits. Update the visuals whenever you change the music. Skip this only if the user explicitly says no visuals.
 - Keep replies very short during a set — a sentence max. The user is listening, not reading.
 - `strudel_read_console` after edits as usual; if errors appear, fix them in-place rather than stopping.
 

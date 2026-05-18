@@ -718,6 +718,26 @@ html.theme-retro .retro-panel::after {
   color: black;
 }
 
+.set-panel-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.set-panel-btn-delete {
+  color: var(--text-muted);
+}
+
+.set-panel-btn-delete:hover {
+  border-color: #f87171;
+  color: #f87171;
+}
+
+.set-panel-btn-delete:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .set-panel-songs {
   list-style: none;
   margin: 0;

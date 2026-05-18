@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useState } from "react";
 import {
   activeMarker,
+  clearPlan,
   currentBar,
   getPlan,
   isActive,
@@ -74,23 +75,33 @@ export function SetPanel() {
             <span className="set-panel-genre">
               {plan.genre} · {plan.bpm} BPM
             </span>
-            {active ? (
+            <div className="set-panel-actions">
+              {active ? (
+                <button
+                  type="button"
+                  onClick={stopSet}
+                  className="set-panel-btn"
+                >
+                  Stop
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={startSet}
+                  className="set-panel-btn set-panel-btn-primary"
+                >
+                  Start
+                </button>
+              )}
               <button
                 type="button"
-                onClick={stopSet}
-                className="set-panel-btn"
+                onClick={clearPlan}
+                disabled={active}
+                className="set-panel-btn set-panel-btn-delete"
               >
-                Stop
+                Delete
               </button>
-            ) : (
-              <button
-                type="button"
-                onClick={startSet}
-                className="set-panel-btn set-panel-btn-primary"
-              >
-                Start
-              </button>
-            )}
+            </div>
           </div>
 
           <ol className="set-panel-songs">
