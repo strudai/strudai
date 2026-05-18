@@ -26,6 +26,8 @@ const TOURS: Tour[] = [
             <strong style={{ color: "var(--text-primary)" }}>Strudel</strong> —
             a browser-based live coding environment for music. Write patterns in
             the editor and the audio plays instantly, no installation required.
+
+            Fully open source, and fully running from your computer (except for the LLM interactions, which require an Anthropic API key).
           </span>
         ),
       },
@@ -35,7 +37,7 @@ const TOURS: Tour[] = [
         content: (
           <span>
             The code editor occupies the full background. Write Strudel patterns
-            there — the audio updates live as you run them.
+            there, the audio will play if you run them.
             <br />
             <br />
             <strong style={{ color: "var(--text-primary)" }}>
@@ -77,8 +79,7 @@ const TOURS: Tour[] = [
         title: "What to ask Hans",
         content: (
           <span>
-            Hans reads the code in your editor before every reply — no need to
-            explain what's already there.
+            Hans reads the code in your editor before every reply, no need to copy paste it.
             <br />
             <br />
             <strong style={{ color: "var(--text-primary)" }}>
@@ -89,12 +90,12 @@ const TOURS: Tour[] = [
             <strong style={{ color: "var(--text-primary)" }}>
               Visuals
             </strong>{" "}
-            — "add Hydra visuals that react to the kick"
+            — "add some visuals that react to the kick"
             <br />
             <strong style={{ color: "var(--text-primary)" }}>
               Live sets
             </strong>{" "}
-            — "plan a 3-song set and play it"
+            — "plan a 3-song minimal house set and play it"
           </span>
         ),
       },
