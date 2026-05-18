@@ -4,14 +4,18 @@ on:
   push:
     branches: [main]
 
+# Minimum permissions — no write access to repo contents or packages
+permissions:
+  contents: read
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
@@ -21,7 +25,7 @@ jobs:
 
       # Copy built files and compose config to VM
       - name: Upload dist
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
@@ -31,7 +35,7 @@ jobs:
           target: "/tmp/strudai/"
 
       - name: Deploy
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
