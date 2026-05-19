@@ -116,6 +116,6 @@ Requires `ANTHROPIC_API_KEY` env var (or `.env` file) for compression.
 
 ## Thank you
 
-This project is a thin wrapper around [Strudel](https://strudel.cc/) — a beautiful live coding environment by Alex McLean, Felix Roos, and contributors that runs entirely in the browser. If you enjoy it, consider [supporting Tidal Cycles](https://opencollective.com/tidalcycles).
+This project is a thin wrapper around [Strudel](https://strudel.cc) — a beautiful live coding environment by Alex McLean, Felix Roos, and contributors that runs entirely in the browser. If you enjoy it, consider [supporting Tidal Cycles](https://opencollective.com/tidalcycles).
 
 Community examples sourced from [awesome-strudel](https://github.com/terryds/awesome-strudel) and [strudel-songs-collection](https://github.com/eefano/strudel-songs-collection).
