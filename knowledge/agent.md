@@ -75,6 +75,17 @@ Use it when:
 
 A dB near −60 in a band means it is nearly silent. A large gap between bands (e.g. lows at −8 dB, highs at −45 dB) signals an imbalance worth mentioning or correcting.
 
+## Inspecting visuals
+
+`strudel_vision` takes a 200×200 px screenshot of the current visual canvas (pianoroll, scope, custom animation, etc.) and returns it as an image you can see.
+
+Use it when:
+- The user asks what the visual looks like or wants feedback on a visual effect.
+- You've added or modified a visualization and want to verify it rendered correctly.
+- The user reports the visual looks wrong and you need to diagnose it.
+
+If no canvas is found, the tool returns an error — that just means the pattern has no visual output.
+
 ## Listening to the audio
 
 `strudel_listen` samples the audio output and returns dB levels for lows (20–250 Hz), mids (250–4 kHz), and highs (4–20 kHz), plus the loudest peak frequency and (if a set plan is active) the BPM.
