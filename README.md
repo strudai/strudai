@@ -119,3 +119,11 @@ Requires `ANTHROPIC_API_KEY` env var (or `.env` file) for compression.
 This project is a thin wrapper around [Strudel](https://strudel.cc) — a beautiful live coding environment by Alex McLean, Felix Roos, and contributors that runs entirely in the browser. If you enjoy it, consider [supporting Tidal Cycles](https://opencollective.com/tidalcycles).
 
 Community examples sourced from [awesome-strudel](https://github.com/terryds/awesome-strudel) and [strudel-songs-collection](https://github.com/eefano/strudel-songs-collection).
+
+## License
+
+Copyright (C) 2025 Douwe van der Heijden
+
+This program is free software: you can redistribute it and/or modify it under the terms of the [GNU Affero General Public License](LICENSE) as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+StrudelGPT is built on top of [Strudel](https://strudel.cc), which is also licensed under the AGPL-3.0.
