@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import "./agent/audio-intercept"; // must be first — patches AudioNode.prototype.connect
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
