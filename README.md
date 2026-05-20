@@ -1,6 +1,6 @@
 # StrudAI
 
-An AI assistant for [Strudel](https://strudel.cc/), the browser-based live coding music platform. Chat with "Hans Strudel" to create, modify, and understand Strudel patterns — or hand the wheel to Hans entirely and run a bar-aligned live set.
+An AI assistant for [Strudel](https://strudel.cc/), the browser-based live coding music platform. Self hosted at [strudai.com].
 
 ## Quick start
 
@@ -9,11 +9,11 @@ npm install
 npm run dev
 ```
 
-Open the local URL. Click **[ HANS ]** in the top-right to open the chat. Enter your Anthropic API key in the settings panel (gear icon) to get started. An API key can be created at [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) — you are billed directly by Anthropic for usage.
+Open the local URL. Click **[ HANS ]** in the top-right to open the chat. Enter your Anthropic API key in the settings panel (gear icon) to get started. An API key can be created at [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys). Note that you are billed directly by Anthropic for usage.
 
 ## How it works
 
-Fully client-side — no backend. The app embeds a `<strudel-editor>` web component (via CDN) and calls the Anthropic API directly from the browser using your key. The current editor code is injected into every system prompt so the agent always knows what is playing.
+Fully client-side, no backend. The app embeds a `<strudel-editor>` web component (via CDN) and calls the Anthropic API directly from the browser using your key. The current editor code is injected into every system prompt so the agent always knows what is playing.
 
 ### Agent tools
 
@@ -32,7 +32,7 @@ Fully client-side — no backend. The app embeds a `<strudel-editor>` web compon
 
 ### Live set mode
 
-Ask Hans to plan a set — e.g. *"plan a 20-minute techno set at 135 BPM"* — and he will call `plan_set` to lay out songs and bar-positioned section instructions. After you confirm, `start_set` launches a 500 ms tick loop that fires each section cue at the right bar, automatically rewriting the code as the set progresses. A collapsible set panel inside the chat shows the current song, bar position, and section notes in real time.
+Ask Hans to plan a set - e.g. *"plan a 20-minute techno set at 135 BPM"* - and he will call `plan_set` to lay out songs and bar-positioned section instructions. After you confirm, `start_set` launches a 500 ms tick loop that fires each section cue at the right bar, automatically rewriting the code as the set progresses. A collapsible set panel inside the chat shows the current song, bar position, and section notes in real time.
 
 ### Settings
 
@@ -127,11 +127,13 @@ docker compose up -d
 - **Editor**: Strudel REPL web component via CDN
 - **Hosting**: nginx + Docker Compose
 
-## Thank you
+## Thank you & Reflections
 
-This project is a thin wrapper around [Strudel](https://strudel.cc) — a beautiful live coding environment by Alex McLean, Felix Roos, and contributors that runs entirely in the browser. If you enjoy it, consider [supporting Tidal Cycles](https://opencollective.com/tidalcycles).
+This project is a thin wrapper around [Strudel](https://strudel.cc), a beautiful live coding environment by Alex McLean, Felix Roos, and contributors that runs entirely in the browser. If you enjoy it, consider [supporting Tidal Cycles](https://opencollective.com/tidalcycles).
 
 Community examples sourced from [awesome-strudel](https://github.com/terryds/awesome-strudel) and [strudel-songs-collection](https://github.com/eefano/strudel-songs-collection).
+
+I know that this goes against much of the ethos around live coding. I really love how creative the scene is, and don't want to take anything away from that. It was a fun engineering/data science challenge to try to get my computer to play (shitty) autonomous live sets for me anyway, which is why I built this. A lot of respect to all the creators above!
 
 ## License
 
