@@ -14,26 +14,53 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Strudel's draw system creates a single full-viewport fixed canvas (#test-canvas)
- * and renders all visualizations (scope, pianoroll, etc.) onto it. The canvas
- * matches the physical pixel dimensions of the screen (innerWidth × devicePixelRatio).
+ * Strudel visual output lives on two different canvases depending on the
+ * visualization type:
+ *
+ *  - #test-canvas  — Strudel's shared 2D draw canvas (scope, pianoroll, etc.).
+ *                    Created by getDrawContext() and prepended to document.body.
+ *                    Full-viewport fixed overlay using a 2D context.
+ *
+ *  - Hydra canvas  — Hydra creates its own WebGL canvas (not #test-canvas)
+ *                    and renders its generative visuals into it.
  *
  * Strategy:
- * 1. Find #test-canvas (the Strudel draw canvas).
- * 2. Crop to the Strudel editor container's viewport bounds — the editor is a div
- *    inserted as nextElementSibling of <strudel-editor> by connectedCallback().
- * 3. Scale the crop to fit within OUTPUT_SIZE × OUTPUT_SIZE.
- *
- * If #test-canvas is not found (no visual pattern has run), fall back to the
- * largest canvas heuristic.
+ *  1. Prefer large WebGL canvases that are NOT #test-canvas — these are Hydra
+ *     output canvases. canvas-intercept.ts ensures preserveDrawingBuffer: true
+ *     so the last rendered frame is readable.
+ *  2. Fall back to #test-canvas (full capture) for 2D visualizations.
+ *  3. After rendering to the output canvas, sample a grid of pixels; if the
+ *     result is all-black, return an informative error instead of a black image.
  */
 
 const OUTPUT_SIZE = 200;
-const MIN_CANVAS_DIM = 50;
+const MIN_AREA = 50 * 50;
 
 export type VisualCaptureResult =
   | { base64: string; width: number; height: number; error?: undefined }
   | { error: string; base64?: undefined; width?: undefined; height?: undefined };
+
+function hasWebGLContext(canvas: HTMLCanvasElement): boolean {
+  // Calling getContext on a canvas that already holds a context of a given
+  // type returns that same context. Returns null for a mismatched type.
+  try {
+    return !!(canvas.getContext("webgl2") ?? canvas.getContext("webgl"));
+  } catch {
+    return false;
+  }
+}
+
+function isBlack(ctx: CanvasRenderingContext2D): boolean {
+  // Sample a 10×10 grid across the output canvas to detect non-black pixels.
+  const step = Math.max(1, Math.floor(OUTPUT_SIZE / 10));
+  for (let y = step / 2; y < OUTPUT_SIZE; y += step) {
+    for (let x = step / 2; x < OUTPUT_SIZE; x += step) {
+      const [r, g, b, a] = ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
+      if (a > 10 && (r > 10 || g > 10 || b > 10)) return false;
+    }
+  }
+  return true;
+}
 
 function drawCrop(
   src: HTMLCanvasElement,
@@ -42,9 +69,7 @@ function drawCrop(
   srcW: number,
   srcH: number
 ): VisualCaptureResult {
-  if (srcW <= 0 || srcH <= 0) {
-    return { error: "Crop region has zero size." };
-  }
+  if (srcW <= 0 || srcH <= 0) return { error: "Crop region has zero size." };
 
   const scale = Math.min(OUTPUT_SIZE / srcW, OUTPUT_SIZE / srcH);
   const dstW = Math.round(srcW * scale);
@@ -67,6 +92,15 @@ function drawCrop(
     return { error: `Canvas draw failed: ${e instanceof Error ? e.message : String(e)}` };
   }
 
+  if (isBlack(ctx)) {
+    return {
+      error:
+        "Canvas captured but the result is all black — " +
+        "the visual may not be running yet, or preserveDrawingBuffer is not active for this context. " +
+        "Try evaluating the pattern first (Ctrl+Enter) and call strudel_vision again.",
+    };
+  }
+
   const dataUrl = out.toDataURL("image/jpeg", 0.85);
   const base64 = dataUrl.split(",")[1];
   if (!base64) return { error: "toDataURL returned empty data." };
@@ -75,50 +109,31 @@ function drawCrop(
 }
 
 export function captureVisual(): VisualCaptureResult {
-  const dpr = window.devicePixelRatio || 1;
+  const all = Array.from(document.querySelectorAll<HTMLCanvasElement>("canvas")).filter(
+    (c) => c.width * c.height >= MIN_AREA
+  );
 
-  // Primary path: Strudel's fixed full-viewport draw canvas.
+  if (all.length === 0) {
+    return {
+      error: "No visual canvas found. Make sure a pattern with visualizations is running.",
+    };
+  }
+
+  // Prefer large WebGL canvases that are NOT #test-canvas.
+  // Hydra outputs to its own full-viewport WebGL canvas.
+  const webgl = all.filter((c) => c.id !== "test-canvas" && hasWebGLContext(c));
+  if (webgl.length > 0) {
+    const src = webgl.reduce((a, b) => (a.width * a.height >= b.width * b.height ? a : b));
+    return drawCrop(src, 0, 0, src.width, src.height);
+  }
+
+  // Fall back to Strudel's shared 2D draw canvas (scope, pianoroll, etc.).
   const testCanvas = document.querySelector<HTMLCanvasElement>("#test-canvas");
   if (testCanvas) {
-    // The Strudel editor container is the nextElementSibling of <strudel-editor>.
-    // connectedCallback() inserts it with parentElement.insertBefore(container, this.nextSibling).
-    const editorEl = document.getElementById("strudelEditor");
-    const container = editorEl?.nextElementSibling as HTMLElement | null;
-
-    if (container) {
-      const rect = container.getBoundingClientRect();
-      // test-canvas is position:fixed at physical pixel resolution, so
-      // viewport CSS pixels map 1:1 to canvas pixels after DPR scaling.
-      const srcX = Math.round(rect.left * dpr);
-      const srcY = Math.round(rect.top * dpr);
-      const srcW = Math.round(rect.width * dpr);
-      const srcH = Math.round(rect.height * dpr);
-      return drawCrop(testCanvas, srcX, srcY, srcW, srcH);
-    }
-
-    // Container not found — capture full test-canvas as a fallback.
     return drawCrop(testCanvas, 0, 0, testCanvas.width, testCanvas.height);
   }
 
-  // Fallback: pick the largest non-trivial canvas in the document / shadow DOM.
-  const canvases: HTMLCanvasElement[] = [];
-  const seen = new Set<HTMLCanvasElement>();
-
-  function add(c: HTMLCanvasElement) {
-    if (!seen.has(c)) { seen.add(c); canvases.push(c); }
-  }
-
-  const editorEl = document.getElementById("strudelEditor");
-  if (editorEl?.shadowRoot) {
-    for (const c of editorEl.shadowRoot.querySelectorAll("canvas")) add(c);
-  }
-  for (const c of document.querySelectorAll("canvas")) add(c);
-
-  const viable = canvases.filter((c) => c.width >= MIN_CANVAS_DIM && c.height >= MIN_CANVAS_DIM);
-  if (viable.length === 0) {
-    return { error: "No visual canvas found. Make sure a pattern with visualizations is running." };
-  }
-
-  const src = viable.reduce((a, b) => a.width * a.height > b.width * b.height ? a : b);
+  // Last resort: largest canvas in document.
+  const src = all.reduce((a, b) => (a.width * a.height >= b.width * b.height ? a : b));
   return drawCrop(src, 0, 0, src.width, src.height);
 }
