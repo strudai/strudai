@@ -5,7 +5,7 @@ import { MessageBubble } from "./MessageBubble";
 import { SettingsDrawer } from "./SettingsDrawer";
 import { SetPanel } from "./SetPanel";
 import { streamChat } from "../agent/api";
-import { STATIC_PROMPT } from "../agent/system-prompt";
+import { BASE_PROMPT, SET_PROMPT } from "../agent/system-prompt";
 import { getActiveTools, executeTool } from "../agent/tools";
 import { germanise } from "../agent/accent";
 import { subscribeToConsole, getErrorsSince } from "../agent/error-buffer";
@@ -293,19 +293,57 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
 
   function buildSystem(code: string): Anthropic.TextBlockParam[] {
     const blocks: Anthropic.TextBlockParam[] = [
-      {
-        type: "text",
-        text: STATIC_PROMPT,
-        cache_control: { type: "ephemeral" },
-      },
+      { type: "text", text: BASE_PROMPT, cache_control: { type: "ephemeral", ttl: "1h" } },
     ];
+    if (isSetActive()) {
+      blocks.push({ type: "text", text: SET_PROMPT, cache_control: { type: "ephemeral", ttl: "1h" } });
+    }
     if (code) {
-      blocks.push({
-        type: "text",
-        text: `[Current code in editor]\n\`\`\`\n${code}\n\`\`\``,
-      });
+      blocks.push({ type: "text", text: `[Current code in editor]\n\`\`\`\n${code}\n\`\`\`` });
     }
     return blocks;
+  }
+
+  function trimHistory(messages: Anthropic.MessageParam[], maxTurns = 8): Anthropic.MessageParam[] {
+    const realUserIndices: number[] = [];
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      if (msg.role === "user") {
+        const isToolResult = Array.isArray(msg.content) &&
+          msg.content.length > 0 &&
+          (msg.content[0] as { type: string }).type === "tool_result";
+        if (!isToolResult) realUserIndices.push(i);
+      }
+    }
+    if (realUserIndices.length <= maxTurns) return messages;
+    return messages.slice(realUserIndices[realUserIndices.length - maxTurns]);
+  }
+
+  function addHistoryCache(messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+    const realUserIndices: number[] = [];
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      if (msg.role === "user") {
+        const isToolResult = Array.isArray(msg.content) &&
+          msg.content.length > 0 &&
+          (msg.content[0] as { type: string }).type === "tool_result";
+        if (!isToolResult) realUserIndices.push(i);
+      }
+    }
+    if (realUserIndices.length < 2) return messages;
+    const targetIdx = realUserIndices[realUserIndices.length - 2];
+    return messages.map((msg, i) => {
+      if (i !== targetIdx) return msg;
+      const content = msg.content;
+      if (typeof content === "string") {
+        return { ...msg, content: [{ type: "text" as const, text: content, cache_control: { type: "ephemeral" as const } }] };
+      }
+      if (Array.isArray(content) && content.length > 0) {
+        const last = content[content.length - 1];
+        return { ...msg, content: [...content.slice(0, -1), { ...last, cache_control: { type: "ephemeral" as const } }] };
+      }
+      return msg;
+    });
   }
 
   async function runAgentLoop(apiKey: string, signal: AbortSignal) {
@@ -323,7 +361,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
       const result = await streamChat({
-        messages: apiMessagesRef.current,
+        messages: addHistoryCache(trimHistory(apiMessagesRef.current, 12)),
         model: store.getModel(),
         system,
         apiKey,

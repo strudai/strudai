@@ -331,8 +331,8 @@ async function sampleSearch(query: string): Promise<string> {
 }
 
 const EXAMPLES_URL = "/strudel_examples.md";
-const MAX_EXAMPLE_RESULTS = 5;
-const MAX_CODE_CHARS = 3000;
+const MAX_EXAMPLE_RESULTS = 3;
+const MAX_CODE_CHARS = 1500;
 
 interface Example {
   title: string;
@@ -407,7 +407,7 @@ export async function executeTool(
       const current = editor.getCode();
       const count = current.split(oldStr).length - 1;
       if (count === 0) {
-        return JSON.stringify({ ok: false, error: "old_string not found in current code", current_code: current });
+        return JSON.stringify({ ok: false, error: "old_string not found in current code" });
       }
       if (count > 1) {
         return JSON.stringify({ ok: false, error: `old_string found ${count} times, must match exactly once` });
