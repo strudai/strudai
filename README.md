@@ -1,6 +1,6 @@
 # StrudAI
 
-An AI assistant for [Strudel](https://strudel.cc/), the browser-based live coding music platform. Self hosted at [strudai.com].
+An AI assistant for [Strudel](https://strudel.cc/), the browser-based live coding music platform. Self hosted at [strudai.com](https://strudai.com).
 
 ## Quick start
 
