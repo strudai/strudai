@@ -141,4 +141,4 @@ Copyright (C) 2025 Douwe van der Heijden
 
 This program is free software: you can redistribute it and/or modify it under the terms of the [GNU Affero General Public License](LICENSE) as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
-StrudelGPT is built on top of [Strudel](https://strudel.cc), which is also licensed under the AGPL-3.0.
+StrudelGPT is built on top of [Strudel](https://strudel.cc/), which is also licensed under the AGPL-3.0.
