@@ -13,11 +13,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import agent from "../../prompts/agent.md?raw";
-import strudel from "../../prompts/strudel.md?raw";
-import hydra from "../../prompts/hydra.md?raw";
-import style from "../../prompts/style.md?raw";
-import set from "../../prompts/set.md?raw";
+import agent from "../../knowledge/agent.md?raw";
+import strudel from "../../knowledge/strudel.md?raw";
+import hydra from "../../knowledge/hydra.md?raw";
+import style from "../../knowledge/style.md?raw";
+import set from "../../knowledge/set.md?raw";
 
 const DIVIDER = "\n\n---\n\n";
 

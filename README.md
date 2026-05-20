@@ -15,7 +15,7 @@ Open the local URL. Click **[ HANS ]** in the top-right to open the chat. Enter 
 
 Fully client-side — no backend. The app embeds a `<strudel-editor>` web component (via CDN) and calls the Anthropic API directly from the browser using your key. The current editor code is injected into every system prompt so the agent always knows what is playing.
 
-### Tools
+### Agent tools
 
 | Tool | Description |
 |------|-------------|
@@ -53,7 +53,7 @@ src/
     accent.ts           Germanises assistant text (Hans persona)
     error-buffer.ts     Console error capture and subscription
     set-state.ts        Live set state machine (plan, bars, markers)
-    system-prompt.ts    Assembles system prompt from prompts/*.md
+    system-prompt.ts    Assembles system prompt from knowledge/*.md
     tools.ts            Tool definitions and executor
     types.ts            Shared types
   ui/
@@ -68,28 +68,31 @@ src/
     index.css           All styles
   main.tsx              Entry point
   store.ts              localStorage wrappers
-  stubs/
-    next-navigation.ts  Stub for nextstepjs's unused Next.js adapter
-prompts/
-  agent.md              Hand-written: personality + tool guidance
+knowledge/
+  agent.md              Hand-written: Hans persona, tool guidance, behaviour rules
   set.md                Hand-written: live set mode instructions
-  style.md              Hand-written: common-mistake corrections / style rules
+  style.md              Hand-written: common-mistake corrections, style rules
   strudel.md            Generated: Strudel API reference (bundled at build time)
-  hydra.md              Generated: Hydra (visuals) reference (bundled at build time)
-  build.py              Run full pipeline (fetch + compress, both domains)
+  hydra.md              Generated: Hydra visuals reference (bundled at build time)
+  build.py              Run full knowledge pipeline (fetch + compress)
   fetch.py              Fetch upstream docs + examples for Strudel and Hydra
-  compress.py           Compress raw into the .md references via Claude
+  compress.py           Compress raw fetched content into .md via Claude
+docker/
+  nginx/
+    default.conf        Nginx virtual host config (prod + dev subdomains, TLS)
+    security_headers.conf  CSP, HSTS, and other security headers
+compose.yml             Docker Compose for self-hosted nginx deployment
 index.html              Vite entry point + Strudel editor web component
 ```
 
-The system prompt is assembled at bundle time by joining `agent.md`, `set.md`, `strudel.md`, `hydra.md`, and `style.md`. Edit each file independently to update the agent's behaviour or reference material.
+The system prompt is assembled at bundle time from `knowledge/agent.md`, `knowledge/strudel.md`, `knowledge/hydra.md`, and `knowledge/style.md`. `knowledge/set.md` is only included when a live set is active. Edit each file independently to update the agent's behaviour or reference material.
 
 ## Knowledge pipeline
 
-`prompts/strudel.md` and `prompts/hydra.md` are auto-generated. To rebuild both:
+`knowledge/strudel.md` and `knowledge/hydra.md` are auto-generated from upstream sources. To rebuild both:
 
 ```bash
-cd prompts
+cd knowledge
 uv run --with anthropic --with python-dotenv python build.py
 ```
 
@@ -107,12 +110,22 @@ uv run --with anthropic --with python-dotenv python compress.py hydra    # only 
 
 Requires `ANTHROPIC_API_KEY` env var (or `.env` file) for compression.
 
+## Deployment
+
+The app builds to a static `dist/` folder. The included Docker Compose setup serves it with nginx on `strudai.com`, with a separate `dev.strudai.com` virtual host for preview builds. Nginx is configured with security headers (CSP, HSTS, `X-Frame-Options`) and long-lived caching for Vite-fingerprinted assets.
+
+```bash
+npm run build
+docker compose up -d
+```
+
 ## Stack
 
 - **Frontend**: React, TypeScript, Vite, Tailwind CSS
 - **Onboarding**: nextstepjs
 - **API**: Anthropic SDK (client-side, user-provided key)
 - **Editor**: Strudel REPL web component via CDN
+- **Hosting**: nginx + Docker Compose
 
 ## Thank you
 
