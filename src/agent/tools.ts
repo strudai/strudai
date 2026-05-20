@@ -17,6 +17,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { StrudelEditorHandle } from "./types";
 import { getRecentConsole } from "./error-buffer";
 import { analyzeAudio } from "./audio-analyzer";
+import { captureVisual } from "./visual-capture";
 import {
   setPlan as setActivePlan,
   startSet as activateSet,
@@ -51,6 +52,7 @@ export const TOOL_META: ToolMeta[] = [
   { name: "strudel_rewrite_code", label: "Rewrite code", description: "Replace the entire editor code", category: "Editor" },
   { name: "strudel_read_console", label: "Read console", description: "Check recent console output for errors", category: "Editor" },
   { name: "strudel_listen", label: "Listen", description: "Sample audio output: lows/mids/highs loudness, peak frequency", category: "Editor" },
+  { name: "strudel_vision", label: "Vision", description: "Screenshot the current Strudel visual output (200×200 px)", category: "Editor" },
   { name: "strudel_docs_search", label: "Docs search", description: "Search the official Strudel documentation", category: "Research" },
   { name: "sample_search", label: "Sample search", description: "Find Strudel sample packs and sounds", category: "Research" },
   { name: "example_search", label: "Example search", description: "Literal text search across community Strudel patterns", category: "Research" },
@@ -117,6 +119,18 @@ export const TOOLS: Anthropic.ToolUnion[] = [
       "Also returns the set BPM if a plan is active. " +
       "Use this to diagnose mix balance (e.g. too much bass, weak high-end), " +
       "verify that a pattern is actually making sound, or check frequency buildup.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "strudel_vision",
+    description:
+      "Take a 200×200 px screenshot of the current Strudel visual output and return it as an image. " +
+      "Use this when the user asks about visuals, wants feedback on what the pattern looks like, " +
+      "or when you want to verify that a visual effect (pianoroll, scope, animation) is working.",
     input_schema: {
       type: "object" as const,
       properties: {},
@@ -422,11 +436,13 @@ async function exampleSearch(query: string): Promise<string> {
   }
 }
 
+export type ToolResultContent = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>;
+
 export async function executeTool(
   name: string,
   input: Record<string, unknown>,
   editor: StrudelEditorHandle
-): Promise<string> {
+): Promise<ToolResultContent> {
   switch (name) {
     case "strudel_rewrite_code": {
       const code = input.code as string;
@@ -471,6 +487,26 @@ export async function executeTool(
     case "strudel_listen": {
       const snap = await analyzeAudio();
       return JSON.stringify(snap);
+    }
+    case "strudel_vision": {
+      const capture = captureVisual();
+      if (capture.base64 === undefined) {
+        return JSON.stringify({ ok: false, error: capture.error });
+      }
+      return [
+        {
+          type: "image" as const,
+          source: {
+            type: "base64" as const,
+            media_type: "image/jpeg" as const,
+            data: capture.base64,
+          },
+        },
+        {
+          type: "text" as const,
+          text: `Visual snapshot captured (${capture.width}×${capture.height} px, scaled to fit 200×200).`,
+        },
+      ];
     }
     default:
       return JSON.stringify({ ok: false, error: `Unknown tool: ${name}` });
