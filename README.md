@@ -24,7 +24,7 @@ Fully client-side, no backend. The app embeds a `<strudel-editor>` web component
 | `strudel_read_console` | Read recent console output to check for errors |
 | `strudel_docs_search` | Search the official Strudel documentation |
 | `sample_search` | Find Strudel sample packs and sound names |
-| `example_search` | Search community Strudel patterns by keyword |
+| `example_search` | Search community Strudel patterns by keyword to understand chaining and function use |
 | `web_search` | Live web search (server-side, billed separately) |
 | `plan_set` | Define the structure of a live set (songs, BPM, sections) |
 | `start_set` | Begin bar-aligned live set playback |
