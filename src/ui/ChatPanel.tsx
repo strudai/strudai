@@ -126,10 +126,12 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
 
   async function handleSend(seedText?: string, hint?: DisplayHint) {
     const text = (seedText ?? input).trim();
-    if (!text || isStreaming) return;
+    if (!text || isStreamingRef.current) return;
+    isStreamingRef.current = true;
 
     const apiKey = store.getApiKey();
     if (!apiKey) {
+      isStreamingRef.current = false;
       setSettingsOpen(true);
       return;
     }
@@ -166,16 +168,15 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       }
     } finally {
       setIsStreaming(false);
+      isStreamingRef.current = false;
       abortRef.current = null;
     }
   }
 
-  // Auto-fix watcher: when enabled, new errors trigger a fix turn.
-  const isStreamingRef = useRef(isStreaming);
-  useEffect(() => {
-    isStreamingRef.current = isStreaming;
-  }, [isStreaming]);
+  // Synchronous mutex — managed directly in handleSend/finally, not via React state.
+  const isStreamingRef = useRef(false);
 
+  // Auto-fix watcher: when enabled, new errors trigger a fix turn.
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     let windowStart = 0;
@@ -461,6 +462,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
   }
 
   function handleStop() {
+    triggerQueueRef.current = [];
     abortRef.current?.abort();
   }
 

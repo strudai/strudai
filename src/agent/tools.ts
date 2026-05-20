@@ -212,7 +212,7 @@ export const TOOLS: Anthropic.ToolUnion[] = [
     description:
       "Activate the planned set. Bar-aligned trigger messages will start " +
       "arriving immediately (bar 0 first — establish the foundation and call " +
-      "setcpm(bpm)). Only call this after plan_set, and ideally after the " +
+      "setcpm(bpm/4)). Only call this after plan_set, and ideally after the " +
       "user confirms they want to start.",
     input_schema: {
       type: "object" as const,
