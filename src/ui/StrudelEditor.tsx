@@ -13,8 +13,20 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { useImperativeHandle, forwardRef } from "react";
+import { useImperativeHandle, useEffect, forwardRef } from "react";
 import type { StrudelEditorElement, StrudelEditorHandle } from "../agent/types";
+
+function hushHydra() {
+  const hush = (globalThis as any).hush;
+  if (typeof hush === 'function') {
+    try { hush(); } catch { /* not initialized */ }
+  }
+}
+
+function clearHydra() {
+  hushHydra();
+  document.getElementById('hydra-canvas')?.remove();
+}
 
 /**
  * The <strudel-editor> element lives in index.html (outside React)
@@ -24,6 +36,36 @@ import type { StrudelEditorElement, StrudelEditorHandle } from "../agent/types";
  */
 export const StrudelEditor = forwardRef<StrudelEditorHandle>(
   function StrudelEditor(_props, ref) {
+    useEffect(() => {
+      const handleStrudelLog = (e: Event) => {
+        if ((e as CustomEvent).detail?.message === '[cyclist] stop') {
+          clearHydra();
+        }
+      };
+      document.addEventListener('strudel.log', handleStrudelLog);
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.ctrlKey && e.key === 'Enter') {
+          const el = document.getElementById("strudelEditor") as StrudelEditorElement | null;
+          const code = el?.editor?.code ?? '';
+          if (!code.includes('initHydra')) {
+            clearHydra();
+          } else {
+            hushHydra();
+          }
+        } else if (e.ctrlKey && e.key === '.') {
+          clearHydra();
+        }
+      };
+      // Capture phase so we run before CodeMirror's keymap handler
+      document.addEventListener('keydown', handleKeyDown, true);
+
+      return () => {
+        document.removeEventListener('strudel.log', handleStrudelLog);
+        document.removeEventListener('keydown', handleKeyDown, true);
+      };
+    }, []);
+
     useImperativeHandle(ref, () => ({
       getCode() {
         const el = document.getElementById("strudelEditor") as StrudelEditorElement | null;
@@ -32,6 +74,11 @@ export const StrudelEditor = forwardRef<StrudelEditorHandle>(
       setCode(code: string, evaluate = true) {
         const el = document.getElementById("strudelEditor") as StrudelEditorElement | null;
         if (el?.editor) {
+          if (!code.includes('initHydra')) {
+            clearHydra();
+          } else {
+            hushHydra();
+          }
           el.editor.setCode(code);
           if (evaluate) el.editor.evaluate();
         }
