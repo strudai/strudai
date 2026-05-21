@@ -41,8 +41,6 @@ const TOURS: Tour[] = [
             <strong style={{ color: "var(--text-primary)" }}>Strudel</strong> —
             a browser-based live coding environment for music. Write patterns in
             the editor and the audio plays instantly, no installation required.
-
-            Fully open source, and fully running from your computer (except for the LLM interactions, which require an Anthropic API key).
           </span>
         ),
       },
@@ -83,9 +81,8 @@ const TOURS: Tour[] = [
               style={{ color: "var(--accent)", textDecoration: "underline" }}
             >
               console.anthropic.com            </a>
-            . Enter it in the settings panel (&#x2699;) inside the chat.
-
-            Note that you will be billed by Anthropic for API usage, so use the assistant wisely!
+            . Enter it in the settings panel (&#x2699;) inside the chat. You
+            will be billed by Anthropic for API usage.
           </span>
         ),
       },
@@ -139,6 +136,27 @@ const TOURS: Tour[] = [
               supporting Tidal Cycles
             </a>
             .
+          </span>
+        ),
+      },
+      {
+        icon: null,
+        title: "Open Source",
+        content: (
+          <span>
+            StrudAI runs entirely on your computer — no servers, no telemetry.
+            The source is released under the{" "}
+            <strong style={{ color: "var(--text-primary)" }}>AGPL-3.0</strong>{" "}
+            licence and available on{" "}
+            <a
+              href="https://github.com/strudai/strudai"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "var(--accent)", textDecoration: "underline" }}
+            >
+              GitHub
+            </a>
+            . Contributions welcome.
           </span>
         ),
       },
