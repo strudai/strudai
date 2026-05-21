@@ -1,4 +1,4 @@
-// Copyright (C) 2025 Douwe van der Heijden
+// Copyright (C) 2026 Douwe van der Heijden
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -38,11 +38,10 @@ export function MessageBubble({ message }: { message: Message }) {
   const isEmptyAssistant = !isUser && message.content === "";
   return (
     <div
-      className={`${baseClasses} px-3 py-2 text-[0.9rem] ${
-        isUser
+      className={`${baseClasses} px-3 py-2 text-[0.9rem] ${isUser
           ? "self-end bg-[var(--bubble-user)] text-[var(--bubble-user-text)]"
           : "self-start bg-[var(--bubble-assistant)] text-[var(--bubble-assistant-text)] border border-[var(--accent)]"
-      }`}
+        }`}
     >
       {isEmptyAssistant ? (
         <span className="inline-flex gap-[3px] align-middle">

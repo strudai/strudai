@@ -1,4 +1,4 @@
-// Copyright (C) 2025 Douwe van der Heijden
+// Copyright (C) 2026 Douwe van der Heijden
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -47,16 +47,16 @@ const _origConnect = AudioNode.prototype.connect;
   dest: AudioNode | AudioParam,
   ...rest: number[]
 ): AudioNode | void {
-  const ctx = this.context;
-  if (
-    ctx instanceof AudioContext &&
-    dest instanceof AudioNode &&
-    dest === ctx.destination
-  ) {
-    _capture = { ctx, output: this };
-  }
-  return (_origConnect as (dest: AudioNode | AudioParam, ...rest: number[]) => AudioNode | void).apply(this, [dest, ...rest]);
-};
+    const ctx = this.context;
+    if (
+      ctx instanceof AudioContext &&
+      dest instanceof AudioNode &&
+      dest === ctx.destination
+    ) {
+      _capture = { ctx, output: this };
+    }
+    return (_origConnect as (dest: AudioNode | AudioParam, ...rest: number[]) => AudioNode | void).apply(this, [dest, ...rest]);
+  };
 
 export function getCapturedAudio(): Capture | null {
   return _capture;

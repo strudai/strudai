@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Douwe van der Heijden
+# Copyright (C) 2026 Douwe van der Heijden
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published
