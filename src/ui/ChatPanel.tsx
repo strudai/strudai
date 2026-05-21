@@ -464,16 +464,18 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
                 : block.name === "strudel_docs_search" ? `Searching docs: ${(toolInput.query as string) ?? ""}`
                 : block.name === "sample_search" ? `Searching samples: ${(toolInput.query as string) ?? ""}`
                 : block.name === "example_search" ? `Searching examples: ${(toolInput.query as string) ?? ""}`
+                : block.name === "strudel_vision" ? "Capturing screenshot..."
                 : block.name,
             },
           ]);
 
           // Execute tool
-          const resultStr = await executeTool(
+          const toolResult = await executeTool(
             block.name,
             toolInput,
             editorRef.current!
           );
+          const resultStr = typeof toolResult === "string" ? toolResult : "[image]";
           console.log(`[tool] ${block.name} → ${summarizeToolResult(resultStr)}`);
 
           // Update tool message with result
@@ -487,6 +489,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
                   : block.name === "strudel_read_console" ? summarizeConsoleResult(resultStr)
                   : block.name === "strudel_docs_search" || block.name === "sample_search" || block.name === "example_search"
                     ? summarizeSearchResult(resultStr)
+                  : block.name === "strudel_vision" ? "Screenshot captured"
                     : resultStr,
               };
             }
@@ -496,7 +499,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
           toolResults.push({
             type: "tool_result",
             tool_use_id: block.id,
-            content: resultStr,
+            content: toolResult,
           });
         }
 

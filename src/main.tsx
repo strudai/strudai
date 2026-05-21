@@ -13,6 +13,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import "./agent/canvas-intercept"; // must be first — patches HTMLCanvasElement.prototype.getContext
+import "./agent/audio-intercept"; // patches AudioNode.prototype.connect
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
