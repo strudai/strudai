@@ -14,7 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { getPlan } from "./set-state";
-import { getCapturedAudio } from "./audio-intercept";
+import { getAllCaptures } from "./audio-intercept";
 
 const SAMPLE_WAIT_MS = 2000;
 const SILENCE_THRESHOLD = 4; // out of 255; below this → not playing
@@ -65,8 +65,8 @@ export async function analyzeAudio(): Promise<AudioSnapshot> {
     error: null,
   };
 
-  const captured = getCapturedAudio();
-  if (!captured) {
+  const allCaptures = getAllCaptures();
+  if (allCaptures.length === 0) {
     return {
       ...base,
       error:
@@ -74,28 +74,55 @@ export async function analyzeAudio(): Promise<AudioSnapshot> {
     };
   }
 
-  const { ctx, output } = captured;
+  // Find the first running AudioContext among all captures (newest first).
+  // Strudel may create a new AudioContext on re-evaluation, so the most recent
+  // running context is the one that's actually producing audio.
+  let ctx: AudioContext | null = null;
+  for (let i = allCaptures.length - 1; i >= 0; i--) {
+    if (allCaptures[i].ctx.state === "running") {
+      ctx = allCaptures[i].ctx;
+      break;
+    }
+  }
 
-  if (ctx.state === "suspended") {
-    return { ...base, error: "Audio context is suspended — press play in the editor first." };
+  if (!ctx) {
+    const lastState = allCaptures[allCaptures.length - 1].ctx.state;
+    return {
+      ...base,
+      error: `Audio context is ${lastState} — press play in the editor first.`,
+    };
   }
 
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 2048;
 
-  // Tap the output node in parallel — connect() is additive in Web Audio API,
-  // so this doesn't disturb the existing output → destination connection.
-  output.connect(analyser);
+  // Tap ALL output nodes from this context in parallel — connect() is additive
+  // in Web Audio API, so this doesn't disturb existing output → destination
+  // connections. Strudel may connect several nodes to destination (master gain,
+  // compressor, re-evaluation creates a new gain, etc.), so we try all of them
+  // and the analyser sees the combined signal.
+  const connected: AudioNode[] = [];
+  for (const { ctx: capCtx, output } of allCaptures) {
+    if (capCtx !== ctx) continue;
+    try {
+      output.connect(analyser);
+      connected.push(output);
+    } catch {
+      // Node may be in an invalid state (e.g. already garbage-collected), skip.
+    }
+  }
 
   await new Promise((r) => setTimeout(r, SAMPLE_WAIT_MS));
 
   const freqData = new Uint8Array(analyser.frequencyBinCount);
   analyser.getByteFrequencyData(freqData);
 
-  try {
-    output.disconnect(analyser);
-  } catch {
-    // Safe to ignore — throws if the node was garbage-collected since we connected
+  for (const output of connected) {
+    try {
+      output.disconnect(analyser);
+    } catch {
+      // Safe to ignore
+    }
   }
 
   const overallAvg = freqData.reduce((s, v) => s + v, 0) / freqData.length;

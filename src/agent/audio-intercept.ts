@@ -30,13 +30,17 @@ interface Capture {
   output: AudioNode;
 }
 
-let _capture: Capture | null = null;
+// All unique (ctx, output) pairs that have ever connected to their context's
+// destination, in insertion order. Multiple nodes may connect to destination
+// (e.g. Strudel's master gain plus a compressor or meter added later), so we
+// keep all of them and try them all in analyzeAudio.
+const _captures: Capture[] = [];
 
 // Store the original connect before patching.
 // eslint-disable-next-line @typescript-eslint/unbound-method
 const _origConnect = AudioNode.prototype.connect;
 
-// Replace connect with a version that records the last node wired to destination.
+// Replace connect with a version that records every node wired to destination.
 // The cast through `unknown` is necessary because our replacement satisfies both
 // overload signatures at runtime but TypeScript can't prove it statically.
 (AudioNode.prototype.connect as unknown as (
@@ -53,11 +57,20 @@ const _origConnect = AudioNode.prototype.connect;
       dest instanceof AudioNode &&
       dest === ctx.destination
     ) {
-      _capture = { ctx, output: this };
+      const alreadyTracked = _captures.some(c => c.ctx === ctx && c.output === this);
+      if (!alreadyTracked) {
+        _captures.push({ ctx, output: this });
+      }
     }
     return (_origConnect as (dest: AudioNode | AudioParam, ...rest: number[]) => AudioNode | void).apply(this, [dest, ...rest]);
   };
 
+/** All captured (ctx, output) pairs, oldest first. */
+export function getAllCaptures(): Capture[] {
+  return _captures;
+}
+
+/** Most recently captured pair, or null if none yet. */
 export function getCapturedAudio(): Capture | null {
-  return _capture;
+  return _captures.length > 0 ? _captures[_captures.length - 1] : null;
 }
