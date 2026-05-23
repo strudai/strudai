@@ -1,4 +1,4 @@
-// Copyright (C) 2025 Douwe van der Heijden
+// Copyright (C) 2026 Douwe van der Heijden
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -184,7 +184,7 @@ export function SettingsDrawer({
               <option value={model}>
                 {modelsState === "loading" ? "Loading..."
                   : modelsState === "failed" ? "Invalid key"
-                  : "Set API key first"}
+                    : "Set API key first"}
               </option>
             ) : (
               models.map((m) => (
@@ -224,8 +224,8 @@ export function SettingsDrawer({
             >
               {saveState === "saving" ? "..."
                 : saveState === "ok" ? "Saved ✓"
-                : saveState === "fail" ? "Invalid"
-                : "Save"}
+                  : saveState === "fail" ? "Invalid"
+                    : "Save"}
             </button>
           </span>
         </label>

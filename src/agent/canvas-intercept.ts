@@ -1,4 +1,4 @@
-// Copyright (C) 2025 Douwe van der Heijden
+// Copyright (C) 2026 Douwe van der Heijden
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -38,13 +38,13 @@ const _origGetContext = HTMLCanvasElement.prototype.getContext;
   contextId: string,
   options?: unknown
 ): RenderingContext | null {
-  if (contextId === "webgl" || contextId === "webgl2") {
-    options = { ...(options as WebGLContextAttributes), preserveDrawingBuffer: true };
-  }
-  return (
-    _origGetContext as unknown as (
-      contextId: string,
-      options?: unknown
-    ) => RenderingContext | null
-  ).call(this, contextId, options);
-};
+    if (contextId === "webgl" || contextId === "webgl2") {
+      options = { ...(options as WebGLContextAttributes), preserveDrawingBuffer: true };
+    }
+    return (
+      _origGetContext as unknown as (
+        contextId: string,
+        options?: unknown
+      ) => RenderingContext | null
+    ).call(this, contextId, options);
+  };

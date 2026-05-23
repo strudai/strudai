@@ -1,4 +1,4 @@
-// Copyright (C) 2025 Douwe van der Heijden
+// Copyright (C) 2026 Douwe van der Heijden
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -157,8 +157,8 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       hint?.kind === "auto-fix"
         ? { role: "tool", toolName: "auto-fix", content: "Strudel error detected — fixing" }
         : hint?.kind === "set-trigger"
-        ? { role: "tool", toolName: "set-trigger", content: hint.display }
-        : { role: "user", content: text };
+          ? { role: "tool", toolName: "set-trigger", content: hint.display }
+          : { role: "user", content: text };
     setMessages((prev) => [...prev, displayMessage]);
     apiMessagesRef.current = [
       ...apiMessagesRef.current,
@@ -215,7 +215,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
         lastSignature = signature;
         handleSend(
           "The Strudel REPL just threw an error. Check the editor and fix it.\n\n" +
-            errors.join("\n"),
+          errors.join("\n"),
           { kind: "auto-fix" }
         );
       }, 2000);
@@ -460,12 +460,12 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
               toolName: block.name,
               content: block.name === "strudel_rewrite_code" ? "Rewriting code..."
                 : block.name === "strudel_edit_code" ? "Editing code..."
-                : block.name === "strudel_read_console" ? "Checking console..."
-                : block.name === "strudel_docs_search" ? `Searching docs: ${(toolInput.query as string) ?? ""}`
-                : block.name === "sample_search" ? `Searching samples: ${(toolInput.query as string) ?? ""}`
-                : block.name === "example_search" ? `Searching examples: ${(toolInput.query as string) ?? ""}`
-                : block.name === "strudel_vision" ? "Capturing screenshot..."
-                : block.name,
+                  : block.name === "strudel_read_console" ? "Checking console..."
+                    : block.name === "strudel_docs_search" ? `Searching docs: ${(toolInput.query as string) ?? ""}`
+                      : block.name === "sample_search" ? `Searching samples: ${(toolInput.query as string) ?? ""}`
+                        : block.name === "example_search" ? `Searching examples: ${(toolInput.query as string) ?? ""}`
+                          : block.name === "strudel_vision" ? "Capturing screenshot..."
+                            : block.name,
             },
           ]);
 
@@ -487,10 +487,10 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
                 ...last,
                 content: (block.name === "strudel_rewrite_code" || block.name === "strudel_edit_code") ? "Code updated"
                   : block.name === "strudel_read_console" ? summarizeConsoleResult(resultStr)
-                  : block.name === "strudel_docs_search" || block.name === "sample_search" || block.name === "example_search"
-                    ? summarizeSearchResult(resultStr)
-                  : block.name === "strudel_vision" ? "Screenshot captured"
-                    : resultStr,
+                    : block.name === "strudel_docs_search" || block.name === "sample_search" || block.name === "example_search"
+                      ? summarizeSearchResult(resultStr)
+                      : block.name === "strudel_vision" ? "Screenshot captured"
+                        : resultStr,
               };
             }
             return updated;

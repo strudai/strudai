@@ -1,4 +1,4 @@
-// Copyright (C) 2025 Douwe van der Heijden
+// Copyright (C) 2026 Douwe van der Heijden
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -163,13 +163,12 @@ export function Console() {
           lines.map((line, i) => (
             <div
               key={i}
-              className={`py-[0.1rem] whitespace-pre-wrap break-all ${
-                line.level === "error"
+              className={`py-[0.1rem] whitespace-pre-wrap break-all ${line.level === "error"
                   ? "text-[#f87171]"
                   : line.level === "warn"
-                  ? "text-[#fbbf24]"
-                  : "text-[var(--text-secondary)]"
-              }`}
+                    ? "text-[#fbbf24]"
+                    : "text-[var(--text-secondary)]"
+                }`}
             >
               {line.text}
             </div>
