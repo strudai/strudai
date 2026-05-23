@@ -38,7 +38,14 @@ const TOURS: Tour[] = [
         content: (
           <span>
             StrudAI is an AI assistant for{" "}
-            <strong style={{ color: "var(--text-primary)" }}>Strudel</strong> —
+            <a
+              href="https://strudel.cc"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "var(--accent)", textDecoration: "underline" }}
+            >
+              Strudel
+            </a> —
             a browser-based live coding environment for music. Write patterns in
             the editor and the audio plays instantly, no installation required.
           </span>
@@ -144,7 +151,7 @@ const TOURS: Tour[] = [
         title: "Open Source",
         content: (
           <span>
-            StrudAI runs entirely on your computer — no servers, no telemetry.
+            StrudAI runs entirely on your computer, no back-end.
             The source is released under the{" "}
             <strong style={{ color: "var(--text-primary)" }}>AGPL-3.0</strong>{" "}
             licence and available on{" "}
