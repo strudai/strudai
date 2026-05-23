@@ -107,6 +107,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     contextTokens: 0,
   });
   const [hasApiKey, setHasApiKey] = useState(!!store.getApiKey());
+  const [isAnimating, setIsAnimating] = useState(false);
 
   // API-level messages (includes tool_use/tool_result blocks)
   const apiMessagesRef = useRef<Anthropic.MessageParam[]>([]);
@@ -529,11 +530,12 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       id="hans-panel"
       data-open={visible ? "" : undefined}
       className="retro-panel fixed top-4 right-4 z-20 flex flex-col bg-[var(--surface)] border border-[var(--surface-border)] rounded-[var(--radius)] shadow-[var(--shadow)] w-[110px] h-[30px] data-[open]:w-[360px] data-[open]:h-[calc(100vh-2rem)] transition-[width,height] duration-300 ease-out animate-panel-in"
+      onTransitionEnd={() => setIsAnimating(false)}
     >
       {/* Header — collapsed shows [ HANS ], expanded shows settings + close */}
       {!visible ? (
         <button
-          onClick={() => setVisible(true)}
+          onClick={() => { setVisible(true); setIsAnimating(true); }}
           className="shrink-0 w-full h-[30px] flex items-center justify-center text-[0.8rem] font-bold text-[var(--text-primary)] hover:text-[var(--accent-hover)] bg-transparent border-0 cursor-pointer transition-colors duration-300 whitespace-nowrap"
         >
           [ HANS ]
@@ -556,11 +558,11 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
               &#x21bb;
             </button>
           </span>
-          <span className="text-[0.8rem] font-bold text-[var(--text-primary)] justify-self-center">
+          <span className="text-[0.8rem] font-bold text-[var(--text-primary)] justify-self-center whitespace-nowrap">
             [ HANS ]
           </span>
           <button
-            onClick={() => setVisible(false)}
+            onClick={() => { setVisible(false); setIsAnimating(true); }}
             className={`${sharedBtn} text-2xl leading-none px-3 py-0 text-[var(--text-muted)] hover:text-[var(--text-primary)] justify-self-end`}
           >
             &times;
@@ -581,7 +583,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
           <SetPanel />
 
           {/* Messages */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-2 rounded-t-[var(--radius)] animate-body-in">
+          <div className={`flex-1 min-h-0 ${isAnimating ? "overflow-hidden" : "overflow-y-auto"} p-4 flex flex-col gap-2 rounded-t-[var(--radius)] animate-body-in`}>
             {messages.map((msg, i) => (
               <MessageBubble key={i} message={msg} />
             ))}
