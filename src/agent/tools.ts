@@ -30,36 +30,11 @@ import {
 
 const CONSOLE_READ_WAIT_MS = 1000;
 const CONSOLE_READ_COUNT = 10;
-const LOAD_FAILED_EXTRA_WAIT_MS = 3000;
 
 async function readConsole(): Promise<string> {
   // Wait briefly so errors from a just-applied edit have time to surface.
   await new Promise((r) => setTimeout(r, CONSOLE_READ_WAIT_MS));
-  let entries = getRecentConsole(CONSOLE_READ_COUNT);
-
-  const hasLoadFailed = entries.some(
-    (e) => e.level === "error" && /load failed/i.test(e.text)
-  );
-
-  if (hasLoadFailed) {
-    // GM soundfonts are fetched from CDN asynchronously — wait and re-check
-    // before reporting, so transient load errors don't trigger spurious fixes.
-    await new Promise((r) => setTimeout(r, LOAD_FAILED_EXTRA_WAIT_MS));
-    entries = getRecentConsole(CONSOLE_READ_COUNT);
-    const stillFailing = entries.some(
-      (e) => e.level === "error" && /load failed/i.test(e.text)
-    );
-    const lines = entries.map((e) => `[${e.level}] ${e.text}`);
-    const errorCount = entries.filter((e) => e.level === "error").length;
-    return JSON.stringify({
-      lines,
-      errorCount,
-      loadFailNote: stillFailing
-        ? "load_failed_persists: instrument name may be wrong or CDN unreachable"
-        : "load_failed_cleared: was transient soundfont loading, code is correct",
-    });
-  }
-
+  const entries = getRecentConsole(CONSOLE_READ_COUNT);
   const lines = entries.map((e) => `[${e.level}] ${e.text}`);
   const errorCount = entries.filter((e) => e.level === "error").length;
   return JSON.stringify({ lines, errorCount });

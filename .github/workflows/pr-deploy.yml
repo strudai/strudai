@@ -42,7 +42,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
-          source: "dist/"
+          source: "dist/,compose.yml,docker/"
           target: "/tmp/strudai-dev/"
 
       - name: Deploy
@@ -55,8 +55,10 @@ jobs:
           script: |
             sudo rm -rf /strudai/dist-dev
             sudo mv /tmp/strudai-dev/dist /strudai/dist-dev
+            sudo rm -rf /strudai/docker /strudai/compose.yml
+            sudo mv /tmp/strudai-dev/docker /strudai/docker
+            sudo mv /tmp/strudai-dev/compose.yml /strudai/compose.yml
             sudo rm -rf /tmp/strudai-dev
-            # Reload nginx to pick up new files (no restart needed)
             cd /strudai
             sudo docker-compose -f compose.yml down
             sudo docker-compose -f compose.yml up -d

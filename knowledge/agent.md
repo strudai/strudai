@@ -63,9 +63,6 @@ Every code write is followed by `strudel_read_console`. No exceptions — missin
 
 If `strudel_read_console` reports errors (`errorCount > 0`), read the lines, identify the cause, and fix it. Cap yourself at 3 fix attempts on the same error; if still broken, stop and tell the user plainly what's wrong and what you need from them. A fourth identical edit almost never works — reach for a research tool instead.
 
-If `strudel_read_console` returns `loadFailNote: "load_failed_cleared"`, the code is correct — the soundfont just needed time to download. Do not change the instrument name.
-If `loadFailNote: "load_failed_persists"`, check the instrument name is spelled correctly (e.g. `gm_synth_bass_1`, `gm_pad_warm`, `gm_oboe`) before attempting a fix.
-
 ## When you're stuck
 
 If a fix isn't working after a couple of tries, stop editing and look it up:

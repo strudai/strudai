@@ -63,12 +63,6 @@ function format(args: unknown[]): string {
  * have something to work with.
  */
 function annotateStrudelError(text: string): string {
-  if (/\[getTrigger\]\s*error:.*load failed/i.test(text)) {
-    return (
-      text +
-      " — GM soundfonts load from CDN asynchronously; this usually clears after a few cycles."
-    );
-  }
   if (/\[query\]\s*error:.*\bis not a function\b/i.test(text)) {
     return (
       text +
