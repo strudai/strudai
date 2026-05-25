@@ -28,7 +28,7 @@ import {
   type SetSong,
 } from "./set-state";
 
-const CONSOLE_READ_WAIT_MS = 1000;
+const CONSOLE_READ_WAIT_MS = 2500;
 const CONSOLE_READ_COUNT = 10;
 
 async function readConsole(): Promise<string> {
@@ -48,7 +48,7 @@ export interface ToolMeta {
 }
 
 export const TOOL_META: ToolMeta[] = [
-  { name: "strudel_edit_code", label: "Edit code", description: "Targeted search-and-replace edits", category: "Editor" },
+  { name: "strudel_edit_code", label: "Edit code", description: "Targeted replace / insert / append edits", category: "Editor" },
   { name: "strudel_rewrite_code", label: "Rewrite code", description: "Replace the entire editor code", category: "Editor" },
   { name: "strudel_read_console", label: "Read console", description: "Check recent console output for errors", category: "Editor" },
   { name: "strudel_listen", label: "Listen", description: "Sample audio output: lows/mids/highs loudness, peak frequency", category: "Editor" },
@@ -76,8 +76,9 @@ export const TOOLS: Anthropic.ToolUnion[] = [
   {
     name: "strudel_rewrite_code",
     description:
-      "Replace the entire Strudel editor code and evaluate it. " +
-      "Use when writing code from scratch or rewriting most of the code.",
+      "Replace the entire Strudel editor code. " +
+      "Last resort only — use strudel_edit_code for any targeted change. " +
+      "Only appropriate when starting from scratch or when the majority of the code needs to change at once.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -92,22 +93,31 @@ export const TOOLS: Anthropic.ToolUnion[] = [
   {
     name: "strudel_edit_code",
     description:
-      "Search-and-replace a section of the Strudel editor code. " +
-      "Use for targeted edits — changing a sound, tweaking a value, adding a line. " +
-      "The old_string must match exactly once in the current code.",
+      "Make a targeted edit to the Strudel editor code without rewriting it. " +
+      "Choose the right mode for the job:\n" +
+      "• replace (default): swap old_string for new_string. old_string must match exactly once.\n" +
+      "• insert_before: insert new_string as new line(s) immediately before the line containing old_string. old_string is kept.\n" +
+      "• insert_after: insert new_string as new line(s) immediately after the line containing old_string. old_string is kept.\n" +
+      "• append: add new_string at the end of the code. old_string is not used.\n" +
+      "Prefer this over strudel_rewrite_code whenever only part of the code changes.",
     input_schema: {
       type: "object" as const,
       properties: {
+        mode: {
+          type: "string",
+          enum: ["replace", "insert_before", "insert_after", "append"],
+          description: "Edit operation. Defaults to 'replace'.",
+        },
         old_string: {
           type: "string",
-          description: "The exact substring to find in the current code",
+          description: "Exact substring to find (required for replace, insert_before, insert_after; unused for append)",
         },
         new_string: {
           type: "string",
-          description: "The replacement string",
+          description: "Content to insert or use as replacement",
         },
       },
-      required: ["old_string", "new_string"],
+      required: ["new_string"],
     },
   },
   {
@@ -450,9 +460,22 @@ export async function executeTool(
       return JSON.stringify({ ok: true });
     }
     case "strudel_edit_code": {
-      const oldStr = input.old_string as string;
+      const mode = (input.mode as string | undefined) ?? "replace";
       const newStr = input.new_string as string;
       const current = editor.getCode();
+
+      if (mode === "append") {
+        const trimmed = current.trimEnd();
+        const finalCode = trimmed + "\n" + newStr;
+        const start = trimmed.length + 1;
+        editor.setCode(finalCode, true, start, finalCode.length);
+        return JSON.stringify({ ok: true });
+      }
+
+      const oldStr = input.old_string as string | undefined;
+      if (!oldStr) {
+        return JSON.stringify({ ok: false, error: "old_string is required for mode: " + mode });
+      }
       const count = current.split(oldStr).length - 1;
       if (count === 0) {
         return JSON.stringify({ ok: false, error: "old_string not found in current code" });
@@ -460,7 +483,21 @@ export async function executeTool(
       if (count > 1) {
         return JSON.stringify({ ok: false, error: `old_string found ${count} times, must match exactly once` });
       }
-      editor.setCode(current.replace(oldStr, newStr));
+
+      const idx = current.indexOf(oldStr);
+      if (mode === "replace") {
+        const finalCode = current.slice(0, idx) + newStr + current.slice(idx + oldStr.length);
+        editor.setCode(finalCode, true, idx, idx + newStr.length);
+      } else if (mode === "insert_before") {
+        const finalCode = current.slice(0, idx) + newStr + "\n" + current.slice(idx);
+        editor.setCode(finalCode, true, idx, idx + newStr.length + 1);
+      } else if (mode === "insert_after") {
+        const anchorEnd = idx + oldStr.length;
+        const finalCode = current.slice(0, anchorEnd) + "\n" + newStr + current.slice(anchorEnd);
+        editor.setCode(finalCode, true, anchorEnd + 1, anchorEnd + 1 + newStr.length);
+      } else {
+        return JSON.stringify({ ok: false, error: "Unknown mode: " + mode });
+      }
       return JSON.stringify({ ok: true });
     }
     case "strudel_read_console": {
