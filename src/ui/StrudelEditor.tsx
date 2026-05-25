@@ -76,7 +76,7 @@ export const StrudelEditor = forwardRef<StrudelEditorHandle>(
         const el = document.getElementById("strudelEditor") as StrudelEditorElement | null;
         return el?.editor?.code ?? "";
       },
-      setCode(code: string, evaluate = true) {
+      setCode(code: string, evaluate = true, typingOffset = 0, typingEnd = code.length) {
         const el = document.getElementById("strudelEditor") as StrudelEditorElement | null;
         if (!el?.editor) return;
 
@@ -91,16 +91,19 @@ export const StrudelEditor = forwardRef<StrudelEditorHandle>(
           hushHydra();
         }
 
-        // Typing animation — fast but visible
+        // Typing animation — fast but visible.
+        // Only the range [typingOffset, typingEnd) types character by character;
+        // everything outside that range is shown instantly on every frame.
         const CHUNK = 12;
         const DELAY = 16;
         pendingCode = code;
-        let pos = 0;
+        let pos = typingOffset;
+        const suffix = code.slice(typingEnd);
 
         const tick = () => {
-          pos = Math.min(pos + CHUNK, code.length);
-          el.editor!.setCode(code.slice(0, pos));
-          if (pos < code.length) {
+          pos = Math.min(pos + CHUNK, typingEnd);
+          el.editor!.setCode(code.slice(0, pos) + suffix);
+          if (pos < typingEnd) {
             animTimer = setTimeout(tick, DELAY);
           } else {
             animTimer = null;
