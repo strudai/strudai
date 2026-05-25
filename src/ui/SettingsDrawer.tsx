@@ -15,7 +15,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import * as store from "../store";
-import { listModels, type ModelOption } from "../agent/api";
+import { listModels, detectProvider, type ModelOption } from "../agent/api";
 import { TOOL_META, type ToolMeta } from "../agent/tools";
 
 interface SettingsDrawerProps {
@@ -44,6 +44,8 @@ export function SettingsDrawer({
   const [apiKey, setApiKey] = useState(store.getApiKey() ?? "");
   const [saved, setSaved] = useState(!!store.getApiKey());
   const [model, setModel] = useState(store.getModel());
+  const [modelSearch, setModelSearch] = useState("");
+  const [priceTier, setPriceTier] = useState<"all" | "free" | "budget" | "premium">("all");
   const [models, setModels] = useState<ModelOption[]>([]);
   const [modelsState, setModelsState] = useState<"idle" | "loading" | "loaded" | "failed">(
     store.getApiKey() ? "loading" : "idle"
@@ -92,6 +94,30 @@ export function SettingsDrawer({
   }, []);
 
   const enabledCount = TOOL_META.filter((t) => toolToggles[t.name] !== false).length;
+
+  const provider = saved && apiKey ? detectProvider(apiKey) : null;
+
+  const filteredModels = useMemo(() => {
+    if (provider !== "openrouter") return models;
+    let result = models;
+    if (modelSearch.trim()) {
+      const q = modelSearch.toLowerCase();
+      result = result.filter(
+        (m) => m.id.toLowerCase().includes(q) || m.displayName.toLowerCase().includes(q),
+      );
+    }
+    if (priceTier !== "all") {
+      result = result.filter((m) => {
+        const p = m.inputPricePerM;
+        if (p === undefined) return true; // unknown pricing — always show
+        if (priceTier === "free") return p === 0;
+        if (priceTier === "budget") return p > 0 && p < 1;
+        if (priceTier === "premium") return p >= 1;
+        return true;
+      });
+    }
+    return result;
+  }, [models, modelSearch, priceTier, provider]);
 
   useEffect(() => {
     store.setModel(model);
@@ -151,7 +177,17 @@ export function SettingsDrawer({
     setSaved(false);
     setSaveState("idle");
     setSaveError("");
+    setModelSearch("");
+    setPriceTier("all");
     onApiKeyChange(null);
+  }
+
+  function formatInputPrice(pricePerM: number | undefined): string {
+    if (pricePerM === undefined) return "";
+    if (pricePerM === 0) return "free";
+    if (pricePerM < 0.10) return `$${pricePerM.toFixed(3)}/M`;
+    if (pricePerM < 10) return `$${pricePerM.toFixed(2)}/M`;
+    return `$${Math.round(pricePerM)}/M`;
   }
 
   function maskKey(key: string): string {
@@ -175,25 +211,57 @@ export function SettingsDrawer({
 
         <label>
           <span>Model</span>
-          <select
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            disabled={models.length === 0}
-          >
-            {models.length === 0 ? (
-              <option value={model}>
-                {modelsState === "loading" ? "Loading..."
-                  : modelsState === "failed" ? "Invalid key"
-                    : "Set API key first"}
-              </option>
-            ) : (
-              models.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.displayName}
-                </option>
-              ))
+          <span className="model-field">
+            {provider === "openrouter" && modelsState === "loaded" && (
+              <>
+                <input
+                  type="text"
+                  value={modelSearch}
+                  onChange={(e) => setModelSearch(e.target.value)}
+                  placeholder="Filter models..."
+                  className="model-search-input"
+                />
+                <div className="model-price-filter">
+                  {(["all", "free", "budget", "premium"] as const).map((tier) => (
+                    <button
+                      key={tier}
+                      type="button"
+                      className={`price-tier-btn${priceTier === tier ? " active" : ""}`}
+                      onClick={() => setPriceTier(tier)}
+                    >
+                      {tier === "all" ? "All" : tier === "free" ? "Free" : tier === "budget" ? "<$1/M" : ">$1/M"}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
-          </select>
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              disabled={filteredModels.length === 0}
+            >
+              {filteredModels.length === 0 ? (
+                <option value={model}>
+                  {modelsState === "loading"
+                    ? "Loading..."
+                    : modelsState === "failed"
+                      ? "Invalid key"
+                      : modelSearch || priceTier !== "all"
+                        ? "No matches"
+                        : "Set API key first"}
+                </option>
+              ) : (
+                filteredModels.map((m) => {
+                  const price = formatInputPrice(m.inputPricePerM);
+                  return (
+                    <option key={m.id} value={m.id}>
+                      {price ? `${m.displayName}  ·  ${price}` : m.displayName}
+                    </option>
+                  );
+                })
+              )}
+            </select>
+          </span>
         </label>
 
         <label>
@@ -213,7 +281,7 @@ export function SettingsDrawer({
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSave()}
-              placeholder="sk-ant-..."
+              placeholder="sk-ant-... or sk-or-..."
               className="api-key-input"
             />
             <button
@@ -229,6 +297,12 @@ export function SettingsDrawer({
             </button>
           </span>
         </label>
+
+        {provider && (
+          <span className="api-key-provider" data-provider={provider}>
+            {provider === "anthropic" ? "Anthropic" : "OpenRouter"}
+          </span>
+        )}
 
         <label title="When the Strudel REPL throws an error, automatically ask Hans to fix it.">
           <span>Auto-fix</span>

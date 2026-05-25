@@ -423,22 +423,6 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
         { role: "assistant", content: result.content },
       ];
 
-      // Display server-side tool calls (e.g. web_search runs on Anthropic's side)
-      for (const block of result.content) {
-        if (block.type === "server_tool_use" && block.name === "web_search") {
-          const query = (block.input as { query?: string }).query ?? "";
-          console.log(`[tool] web_search(${JSON.stringify({ query })})`);
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "tool" as const,
-              toolName: "web_search",
-              content: query ? `Searched: ${query}` : "Searching the web...",
-            },
-          ]);
-        }
-      }
-
       if (result.stopReason === "tool_use") {
         // Execute tool calls
         const toolUseBlocks = result.content.filter(
@@ -466,7 +450,8 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
                       : block.name === "sample_search" ? `Searching samples: ${(toolInput.query as string) ?? ""}`
                         : block.name === "example_search" ? `Searching examples: ${(toolInput.query as string) ?? ""}`
                           : block.name === "strudel_vision" ? "Capturing screenshot..."
-                            : block.name,
+                            : block.name === "web_search" ? `Searching: ${(toolInput.query as string) ?? ""}`
+                              : block.name,
             },
           ]);
 
@@ -488,7 +473,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
                 ...last,
                 content: (block.name === "strudel_rewrite_code" || block.name === "strudel_edit_code") ? "Code updated"
                   : block.name === "strudel_read_console" ? summarizeConsoleResult(resultStr)
-                    : block.name === "strudel_docs_search" || block.name === "sample_search" || block.name === "example_search"
+                    : block.name === "strudel_docs_search" || block.name === "sample_search" || block.name === "example_search" || block.name === "web_search"
                       ? summarizeSearchResult(resultStr)
                       : block.name === "strudel_vision" ? "Screenshot captured"
                         : resultStr,
