@@ -53,6 +53,39 @@ function initialMessages(): Message[] {
   return [{ role: "assistant", content: GREETING }];
 }
 
+const SEARCH_TOOL_NAMES = new Set([
+  "strudel_docs_search",
+  "sample_search",
+  "example_search",
+  "web_search",
+]);
+const SEARCH_RESULT_CAP = 4000;
+
+function capSearchResultForHistory(toolName: string, resultStr: string): string {
+  if (!SEARCH_TOOL_NAMES.has(toolName) || resultStr.length <= SEARCH_RESULT_CAP) {
+    return resultStr;
+  }
+  try {
+    const parsed = JSON.parse(resultStr) as { results?: unknown[]; [k: string]: unknown };
+    if (!Array.isArray(parsed.results) || parsed.results.length === 0) {
+      return resultStr.slice(0, SEARCH_RESULT_CAP);
+    }
+    let n = parsed.results.length;
+    while (n > 0) {
+      const candidate = JSON.stringify({
+        ...parsed,
+        results: parsed.results.slice(0, n),
+        ...(n < parsed.results.length ? { note: "[truncated]" } : {}),
+      });
+      if (candidate.length <= SEARCH_RESULT_CAP) return candidate;
+      n--;
+    }
+    return resultStr.slice(0, SEARCH_RESULT_CAP);
+  } catch {
+    return resultStr.slice(0, SEARCH_RESULT_CAP);
+  }
+}
+
 function summarizeSearchResult(resultStr: string): string {
   try {
     const parsed = JSON.parse(resultStr);
@@ -495,10 +528,15 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
             return updated;
           });
 
+          const historyContent =
+            typeof toolResult === "string"
+              ? capSearchResultForHistory(block.name, toolResult)
+              : toolResult;
+
           toolResults.push({
             type: "tool_result",
             tool_use_id: block.id,
-            content: toolResult,
+            content: historyContent,
           });
         }
 
