@@ -26,6 +26,7 @@ interface SettingsDrawerProps {
     uncachedInputTokens: number;
     outputTokens: number;
     contextTokens: number;
+    sessionCostUsd: number;
   };
 }
 
@@ -395,6 +396,12 @@ export function SettingsDrawer({
                 <span>Context window</span>
                 <span>{formatTokens(usage.contextTokens)}</span>
               </div>
+              {usage.sessionCostUsd > 0 && (
+                <div className="usage-row">
+                  <span>Session cost</span>
+                  <span>${usage.sessionCostUsd.toFixed(4)}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

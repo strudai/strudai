@@ -138,6 +138,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     uncachedInputTokens: 0,
     outputTokens: 0,
     contextTokens: 0,
+    sessionCostUsd: 0,
   });
   const [hasApiKey, setHasApiKey] = useState(!!store.getApiKey());
   const [isAnimating, setIsAnimating] = useState(false);
@@ -155,13 +156,13 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  function addUsage(cached: number, uncached: number, output: number) {
+  function addUsage(cached: number, uncached: number, output: number, costUsd?: number) {
     setUsage((prev) => ({
       cachedInputTokens: prev.cachedInputTokens + cached,
       uncachedInputTokens: prev.uncachedInputTokens + uncached,
       outputTokens: prev.outputTokens + output,
-      // The latest request's full input is the context size at that point.
       contextTokens: cached + uncached,
+      sessionCostUsd: prev.sessionCostUsd + (costUsd ?? 0),
     }));
   }
 
@@ -449,7 +450,8 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       addUsage(
         result.cachedInputTokens,
         result.uncachedInputTokens,
-        result.outputTokens
+        result.outputTokens,
+        result.costUsd,
       );
 
       // Remove empty assistant message if no text was streamed

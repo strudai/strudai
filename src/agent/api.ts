@@ -244,6 +244,8 @@ export interface ChatResult {
   outputTokens: number;
   stopReason: string;
   content: Anthropic.ContentBlock[];
+  /** Exact generation cost in USD from OpenRouter; undefined for Anthropic. */
+  costUsd?: number;
 }
 
 export async function streamChat({
@@ -332,9 +334,11 @@ export async function streamChat({
   const tcMap: Record<number, { id: string; name: string; args: string }> = {};
   let finishReason = "stop";
   let usageTokens = { prompt_tokens: 0, completion_tokens: 0 };
+  let generationId = "";
 
   for await (const chunk of stream) {
     if (aborted) break;
+    if (chunk.id && !generationId) generationId = chunk.id;
     const delta = chunk.choices[0]?.delta;
     const finish = chunk.choices[0]?.finish_reason;
     if (finish) finishReason = finish;
@@ -372,11 +376,30 @@ export async function streamChat({
     if (onToolCall) onToolCall(tc.name, input);
   }
 
+  // Fetch exact cost from OpenRouter generation endpoint
+  let costUsd: number | undefined;
+  if (generationId) {
+    try {
+      const res = await fetch(
+        `https://openrouter.ai/api/v1/generation?id=${generationId}`,
+        { headers: { Authorization: `Bearer ${apiKey}` } },
+      );
+      if (res.ok) {
+        const data = (await res.json()) as { data?: { total_cost?: number } };
+        const raw = data.data?.total_cost;
+        if (typeof raw === "number" && raw > 0) costUsd = raw;
+      }
+    } catch {
+      // Cost fetch is best-effort — ignore failures
+    }
+  }
+
   return {
     cachedInputTokens: 0,
     uncachedInputTokens: usageTokens.prompt_tokens,
     outputTokens: usageTokens.completion_tokens,
     stopReason: finishReason === "tool_calls" ? "tool_use" : "end_turn",
     content,
+    costUsd,
   };
 }
