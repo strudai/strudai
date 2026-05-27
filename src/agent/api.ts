@@ -110,10 +110,19 @@ export async function listModels(apiKey: string): Promise<ModelOption[]> {
 
 function anthropicToOpenAIMessages(
   messages: Anthropic.MessageParam[],
-  systemText: string,
+  system: Anthropic.TextBlockParam[],
 ): OpenAI.Chat.ChatCompletionMessageParam[] {
+  const hasSystemCache = system.some((b) => b.cache_control);
+  const systemContent = hasSystemCache
+    ? (system.map((b) => ({
+        type: "text" as const,
+        text: b.text,
+        ...(b.cache_control ? { cache_control: b.cache_control } : {}),
+      })) as unknown as OpenAI.Chat.ChatCompletionContentPartText[])
+    : system.map((b) => b.text).join("\n\n");
+
   const result: OpenAI.Chat.ChatCompletionMessageParam[] = [
-    { role: "system", content: systemText },
+    { role: "system", content: systemContent },
   ];
 
   for (const msg of messages) {
@@ -156,9 +165,20 @@ function anthropicToOpenAIMessages(
       }
 
       if (textBlocks.length > 0) {
+        const hasCache = textBlocks.some(
+          (b) => (b as Anthropic.TextBlockParam).cache_control,
+        );
         result.push({
           role: "user",
-          content: textBlocks.map((b) => b.text).join("\n"),
+          content: hasCache
+            ? (textBlocks.map((b) => ({
+                type: "text" as const,
+                text: (b as Anthropic.TextBlockParam).text,
+                ...((b as Anthropic.TextBlockParam).cache_control
+                  ? { cache_control: (b as Anthropic.TextBlockParam).cache_control }
+                  : {}),
+              })) as unknown as OpenAI.Chat.ChatCompletionContentPartText[])
+            : textBlocks.map((b) => (b as Anthropic.TextBlockParam).text).join("\n"),
         });
       }
     } else {
@@ -292,8 +312,7 @@ export async function streamChat({
 
   // ─── OpenRouter path ───────────────────────────────────────────────────────
   const or = getOpenRouterClient(apiKey);
-  const systemText = system.map((b) => b.text).join("\n\n");
-  const orMessages = anthropicToOpenAIMessages(messages, systemText);
+  const orMessages = anthropicToOpenAIMessages(messages, system);
   const orTools = tools?.length ? anthropicToOpenAITools(tools) : undefined;
 
   const stream = await or.chat.completions.create({
