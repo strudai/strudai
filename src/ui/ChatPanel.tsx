@@ -156,18 +156,14 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  function addUsage(cached: number, uncached: number, output: number) {
+  function addUsage(cached: number, uncached: number, output: number, costUsd: number) {
     setUsage((prev) => ({
       cachedInputTokens: prev.cachedInputTokens + cached,
       uncachedInputTokens: prev.uncachedInputTokens + uncached,
       outputTokens: prev.outputTokens + output,
       contextTokens: cached + uncached,
-      sessionCostUsd: prev.sessionCostUsd,
+      sessionCostUsd: prev.sessionCostUsd + costUsd,
     }));
-  }
-
-  function addCost(usd: number) {
-    setUsage((prev) => ({ ...prev, sessionCostUsd: prev.sessionCostUsd + usd }));
   }
 
   function handleClearChat() {
@@ -438,7 +434,6 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
               return updated;
             });
           },
-          onCost: addCost,
         });
       } catch (err) {
         if (!streamingText) {
@@ -452,10 +447,16 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
         throw err;
       }
 
+      const pricing = store.getModelPricing();
+      const costUsd =
+        (result.uncachedInputTokens * (pricing.inputPricePerM ?? 0) +
+          result.outputTokens * (pricing.outputPricePerM ?? 0)) /
+        1_000_000;
       addUsage(
         result.cachedInputTokens,
         result.uncachedInputTokens,
         result.outputTokens,
+        costUsd,
       );
 
       // Remove empty assistant message if no text was streamed

@@ -122,7 +122,12 @@ export function SettingsDrawer({
 
   useEffect(() => {
     store.setModel(model);
-  }, [model]);
+    const pricing = models.find((m) => m.id === model);
+    store.setModelPricing({
+      inputPricePerM: pricing?.inputPricePerM,
+      outputPricePerM: pricing?.outputPricePerM,
+    });
+  }, [model, models]);
 
   // Fetch available models when API key is present
   useEffect(() => {

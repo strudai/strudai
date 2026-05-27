@@ -59,6 +59,8 @@ export interface ModelOption {
   displayName: string;
   /** USD per million input tokens; undefined = pricing unknown. */
   inputPricePerM?: number;
+  /** USD per million output tokens; undefined = pricing unknown. */
+  outputPricePerM?: number;
 }
 
 export async function listModels(apiKey: string): Promise<ModelOption[]> {
@@ -96,12 +98,15 @@ export async function listModels(apiKey: string): Promise<ModelOption[]> {
       return true;
     })
     .map((m) => {
-      const raw = m.pricing?.prompt;
-      const inputPricePerM = raw !== undefined ? parseFloat(raw) * 1_000_000 : undefined;
+      const rawIn = m.pricing?.prompt;
+      const rawOut = m.pricing?.completion;
+      const inputPricePerM = rawIn !== undefined ? parseFloat(rawIn) * 1_000_000 : undefined;
+      const outputPricePerM = rawOut !== undefined ? parseFloat(rawOut) * 1_000_000 : undefined;
       return {
         id: m.id,
         displayName: m.name,
         inputPricePerM: Number.isFinite(inputPricePerM) ? inputPricePerM : undefined,
+        outputPricePerM: Number.isFinite(outputPricePerM) ? outputPricePerM : undefined,
       };
     });
 }
@@ -233,8 +238,6 @@ export interface StreamChatParams {
   tools?: Anthropic.ToolUnion[];
   onText: (chunk: string) => void;
   onToolCall?: (name: string, input: Record<string, unknown>) => void;
-  /** Called asynchronously (after a short delay) with the exact cost in USD. OpenRouter only. */
-  onCost?: (usd: number) => void;
   signal?: AbortSignal;
 }
 
@@ -256,7 +259,6 @@ export async function streamChat({
   tools,
   onText,
   onToolCall,
-  onCost,
   signal,
 }: StreamChatParams): Promise<ChatResult> {
   if (signal?.aborted) {
@@ -335,11 +337,9 @@ export async function streamChat({
   const tcMap: Record<number, { id: string; name: string; args: string }> = {};
   let finishReason = "stop";
   let usageTokens = { prompt_tokens: 0, completion_tokens: 0 };
-  let generationId = "";
 
   for await (const chunk of stream) {
     if (aborted) break;
-    if (chunk.id && !generationId) generationId = chunk.id;
     const delta = chunk.choices[0]?.delta;
     const finish = chunk.choices[0]?.finish_reason;
     if (finish) finishReason = finish;
@@ -375,26 +375,6 @@ export async function streamChat({
     const input = JSON.parse(tc.args || "{}") as Record<string, unknown>;
     content.push({ type: "tool_use", id: tc.id, name: tc.name, input } as Anthropic.ContentBlock);
     if (onToolCall) onToolCall(tc.name, input);
-  }
-
-  // Fetch exact cost from OpenRouter generation endpoint in the background.
-  // Billing is processed asynchronously, so we wait 2s before querying.
-  if (generationId && onCost) {
-    const _apiKey = apiKey;
-    const _onCost = onCost;
-    const _id = generationId;
-    setTimeout(() => {
-      fetch(
-        `https://openrouter.ai/api/v1/generation?id=${_id}`,
-        { headers: { Authorization: `Bearer ${_apiKey}` } },
-      )
-        .then((res) => res.ok ? res.json() : null)
-        .then((data: { data?: { total_cost?: number } } | null) => {
-          const raw = data?.data?.total_cost;
-          if (typeof raw === "number" && raw > 0) _onCost(raw);
-        })
-        .catch(() => { /* best-effort */ });
-    }, 2000);
   }
 
   return {
