@@ -238,8 +238,6 @@ export interface StreamChatParams {
   tools?: Anthropic.ToolUnion[];
   onText: (chunk: string) => void;
   onToolCall?: (name: string, input: Record<string, unknown>) => void;
-  /** Called once with the exact USD cost from OpenRouter, ~2s after stream ends. */
-  onCost?: (usd: number) => void;
   signal?: AbortSignal;
 }
 
@@ -261,7 +259,6 @@ export async function streamChat({
   tools,
   onText,
   onToolCall,
-  onCost,
   signal,
 }: StreamChatParams): Promise<ChatResult> {
   if (signal?.aborted) {
@@ -340,11 +337,8 @@ export async function streamChat({
   const tcMap: Record<number, { id: string; name: string; args: string }> = {};
   let finishReason = "stop";
   let usageTokens = { prompt_tokens: 0, completion_tokens: 0 };
-  let generationId = "";
-
   for await (const chunk of stream) {
     if (aborted) break;
-    if (chunk.id && !generationId) generationId = chunk.id;
     const delta = chunk.choices[0]?.delta;
     const finish = chunk.choices[0]?.finish_reason;
     if (finish) finishReason = finish;
@@ -380,23 +374,6 @@ export async function streamChat({
     const input = JSON.parse(tc.args || "{}") as Record<string, unknown>;
     content.push({ type: "tool_use", id: tc.id, name: tc.name, input } as Anthropic.ContentBlock);
     if (onToolCall) onToolCall(tc.name, input);
-  }
-
-  if (generationId && onCost) {
-    const id = generationId;
-    const key = apiKey;
-    const cb = onCost;
-    setTimeout(() => {
-      fetch(`https://openrouter.ai/api/v1/generation?id=${id}`, {
-        headers: { Authorization: `Bearer ${key}` },
-      })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((data: { data?: { total_cost?: number } } | null) => {
-          const cost = data?.data?.total_cost;
-          if (typeof cost === "number" && cost > 0) cb(cost);
-        })
-        .catch(() => {});
-    }, 2000);
   }
 
   return {

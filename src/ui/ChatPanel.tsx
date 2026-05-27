@@ -138,7 +138,6 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     uncachedInputTokens: 0,
     outputTokens: 0,
     contextTokens: 0,
-    sessionCostUsd: 0,
   });
   const [hasApiKey, setHasApiKey] = useState(!!store.getApiKey());
   const [isAnimating, setIsAnimating] = useState(false);
@@ -162,12 +161,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       uncachedInputTokens: prev.uncachedInputTokens + uncached,
       outputTokens: prev.outputTokens + output,
       contextTokens: cached + uncached,
-      sessionCostUsd: prev.sessionCostUsd,
     }));
-  }
-
-  function addCost(usd: number) {
-    setUsage((prev) => ({ ...prev, sessionCostUsd: prev.sessionCostUsd + usd }));
   }
 
   function handleClearChat() {
@@ -438,7 +432,6 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
               return updated;
             });
           },
-          onCost: addCost,
         });
       } catch (err) {
         if (!streamingText) {

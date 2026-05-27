@@ -26,7 +26,6 @@ interface SettingsDrawerProps {
     uncachedInputTokens: number;
     outputTokens: number;
     contextTokens: number;
-    sessionCostUsd: number;
   };
 }
 
@@ -372,12 +371,6 @@ export function SettingsDrawer({
           >
             <span>Usage</span>
             <span className="tools-summary-meta">
-              {usage.sessionCostUsd > 0 && (
-                <span className="text-[var(--accent)] font-semibold">
-                  ${usage.sessionCostUsd.toFixed(4)}
-                  {" · "}
-                </span>
-              )}
               {formatTokens(usage.uncachedInputTokens + usage.cachedInputTokens)} in
               {" · "}
               {formatTokens(usage.outputTokens)} out
@@ -402,12 +395,6 @@ export function SettingsDrawer({
                 <span>Context window</span>
                 <span>{formatTokens(usage.contextTokens)}</span>
               </div>
-              {usage.sessionCostUsd > 0 && (
-                <div className="usage-row">
-                  <span>Session cost</span>
-                  <span>${usage.sessionCostUsd.toFixed(4)}</span>
-                </div>
-              )}
             </div>
           </div>
         </div>
