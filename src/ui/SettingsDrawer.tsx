@@ -372,6 +372,12 @@ export function SettingsDrawer({
           >
             <span>Usage</span>
             <span className="tools-summary-meta">
+              {usage.sessionCostUsd > 0 && (
+                <span className="text-[var(--accent)] font-semibold">
+                  ${usage.sessionCostUsd.toFixed(4)}
+                  {" · "}
+                </span>
+              )}
               {formatTokens(usage.uncachedInputTokens + usage.cachedInputTokens)} in
               {" · "}
               {formatTokens(usage.outputTokens)} out
