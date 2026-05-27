@@ -233,6 +233,8 @@ export interface StreamChatParams {
   tools?: Anthropic.ToolUnion[];
   onText: (chunk: string) => void;
   onToolCall?: (name: string, input: Record<string, unknown>) => void;
+  /** Called asynchronously (after a short delay) with the exact cost in USD. OpenRouter only. */
+  onCost?: (usd: number) => void;
   signal?: AbortSignal;
 }
 
@@ -244,8 +246,6 @@ export interface ChatResult {
   outputTokens: number;
   stopReason: string;
   content: Anthropic.ContentBlock[];
-  /** Exact generation cost in USD from OpenRouter; undefined for Anthropic. */
-  costUsd?: number;
 }
 
 export async function streamChat({
@@ -256,6 +256,7 @@ export async function streamChat({
   tools,
   onText,
   onToolCall,
+  onCost,
   signal,
 }: StreamChatParams): Promise<ChatResult> {
   if (signal?.aborted) {
@@ -376,22 +377,24 @@ export async function streamChat({
     if (onToolCall) onToolCall(tc.name, input);
   }
 
-  // Fetch exact cost from OpenRouter generation endpoint
-  let costUsd: number | undefined;
-  if (generationId) {
-    try {
-      const res = await fetch(
-        `https://openrouter.ai/api/v1/generation?id=${generationId}`,
-        { headers: { Authorization: `Bearer ${apiKey}` } },
-      );
-      if (res.ok) {
-        const data = (await res.json()) as { data?: { total_cost?: number } };
-        const raw = data.data?.total_cost;
-        if (typeof raw === "number" && raw > 0) costUsd = raw;
-      }
-    } catch {
-      // Cost fetch is best-effort — ignore failures
-    }
+  // Fetch exact cost from OpenRouter generation endpoint in the background.
+  // Billing is processed asynchronously, so we wait 2s before querying.
+  if (generationId && onCost) {
+    const _apiKey = apiKey;
+    const _onCost = onCost;
+    const _id = generationId;
+    setTimeout(() => {
+      fetch(
+        `https://openrouter.ai/api/v1/generation?id=${_id}`,
+        { headers: { Authorization: `Bearer ${_apiKey}` } },
+      )
+        .then((res) => res.ok ? res.json() : null)
+        .then((data: { data?: { total_cost?: number } } | null) => {
+          const raw = data?.data?.total_cost;
+          if (typeof raw === "number" && raw > 0) _onCost(raw);
+        })
+        .catch(() => { /* best-effort */ });
+    }, 2000);
   }
 
   return {
@@ -400,6 +403,5 @@ export async function streamChat({
     outputTokens: usageTokens.completion_tokens,
     stopReason: finishReason === "tool_calls" ? "tool_use" : "end_turn",
     content,
-    costUsd,
   };
 }
