@@ -74,13 +74,3 @@ export function setAutoFix(enabled: boolean): void {
   localStorage.setItem(AUTOFIX_KEY, String(enabled));
 }
 
-// In-memory pricing for the currently active model (OpenRouter only).
-let _modelPricing: { inputPricePerM?: number; outputPricePerM?: number } = {};
-
-export function setModelPricing(p: { inputPricePerM?: number; outputPricePerM?: number }): void {
-  _modelPricing = p;
-}
-
-export function getModelPricing(): { inputPricePerM?: number; outputPricePerM?: number } {
-  return _modelPricing;
-}
