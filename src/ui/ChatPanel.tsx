@@ -134,8 +134,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [visible, setVisible] = useState(false);
   const [usage, setUsage] = useState({
-    cachedInputTokens: 0,
-    uncachedInputTokens: 0,
+    inputTokens: 0,
     outputTokens: 0,
     contextTokens: 0,
   });
@@ -155,12 +154,11 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  function addUsage(cached: number, uncached: number, output: number) {
+  function addUsage(input: number, output: number, context: number) {
     setUsage((prev) => ({
-      cachedInputTokens: prev.cachedInputTokens + cached,
-      uncachedInputTokens: prev.uncachedInputTokens + uncached,
+      inputTokens: prev.inputTokens + input,
       outputTokens: prev.outputTokens + output,
-      contextTokens: cached + uncached,
+      contextTokens: context,
     }));
   }
 
@@ -168,7 +166,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     if (isStreaming) return;
     setMessages(initialMessages());
     apiMessagesRef.current = [];
-    setUsage((prev) => ({ ...prev, contextTokens: 0 }));
+    setUsage({ inputTokens: 0, outputTokens: 0, contextTokens: 0 });
     clearPlan();
   }
 
@@ -446,9 +444,9 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       }
 
       addUsage(
-        result.cachedInputTokens,
-        result.uncachedInputTokens,
+        result.cachedInputTokens + result.uncachedInputTokens,
         result.outputTokens,
+        result.cachedInputTokens + result.uncachedInputTokens,
       );
 
       // Remove empty assistant message if no text was streamed

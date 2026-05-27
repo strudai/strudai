@@ -22,8 +22,7 @@ interface SettingsDrawerProps {
   open: boolean;
   onApiKeyChange: (key: string | null) => void;
   usage: {
-    cachedInputTokens: number;
-    uncachedInputTokens: number;
+    inputTokens: number;
     outputTokens: number;
     contextTokens: number;
   };
@@ -371,7 +370,7 @@ export function SettingsDrawer({
           >
             <span>Usage</span>
             <span className="tools-summary-meta">
-              {formatTokens(usage.uncachedInputTokens + usage.cachedInputTokens)} in
+              {formatTokens(usage.inputTokens)} in
               {" · "}
               {formatTokens(usage.outputTokens)} out
               <span className="tools-chevron">▸</span>
@@ -380,12 +379,8 @@ export function SettingsDrawer({
           <div className="tools-groups-wrapper" data-open={usageExpanded ? "" : undefined}>
             <div className="tools-groups">
               <div className="usage-row">
-                <span>In (uncached)</span>
-                <span>{formatTokens(usage.uncachedInputTokens)}</span>
-              </div>
-              <div className="usage-row">
-                <span>In (cached)</span>
-                <span>{formatTokens(usage.cachedInputTokens)}</span>
+                <span>In</span>
+                <span>{formatTokens(usage.inputTokens)}</span>
               </div>
               <div className="usage-row">
                 <span>Out</span>
