@@ -68,15 +68,10 @@ export function getActiveTools(enabled: Record<string, boolean>): Anthropic.Tool
 
 export const TOOLS: Anthropic.ToolUnion[] = [
   {
+    type: "web_search_20260209",
     name: "web_search",
-    description: "Search the web for current information. Use when the user asks about recent events, specific facts, or anything that may not be in your training data.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        query: { type: "string", description: "Search query" },
-      },
-      required: ["query"],
-    },
+    max_uses: 3,
+    allowed_callers: ["direct"],
   },
   {
     name: "strudel_rewrite_code",

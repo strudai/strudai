@@ -179,7 +179,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       if (!abortController.signal.aborted && err instanceof Error) {
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: `Error: ${err.message}` },
+          { role: "tool" as const, toolName: "error", content: err.message },
         ]);
       }
     } finally {
@@ -377,28 +377,41 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       let streamingText = "";
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
-      const result = await streamChat({
-        messages: addHistoryCache(trimHistory(apiMessagesRef.current, 12)),
-        model: store.getModel(),
-        system,
-        apiKey,
-        tools,
-        signal,
-        onText: (chunk) => {
-          streamingText += chunk;
+      let result: Awaited<ReturnType<typeof streamChat>>;
+      try {
+        result = await streamChat({
+          messages: addHistoryCache(trimHistory(apiMessagesRef.current, 12)),
+          model: store.getModel(),
+          system,
+          apiKey,
+          tools,
+          signal,
+          onText: (chunk) => {
+            streamingText += chunk;
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last.role === "assistant") {
+                updated[updated.length - 1] = {
+                  ...last,
+                  content: germanise(streamingText),
+                };
+              }
+              return updated;
+            });
+          },
+        });
+      } catch (err) {
+        if (!streamingText) {
           setMessages((prev) => {
             const updated = [...prev];
             const last = updated[updated.length - 1];
-            if (last.role === "assistant") {
-              updated[updated.length - 1] = {
-                ...last,
-                content: germanise(streamingText),
-              };
-            }
+            if (last?.role === "assistant" && !last.content) updated.pop();
             return updated;
           });
-        },
-      });
+        }
+        throw err;
+      }
 
       addUsage(
         result.cachedInputTokens,
