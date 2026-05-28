@@ -73,3 +73,4 @@ export function getAutoFix(): boolean {
 export function setAutoFix(enabled: boolean): void {
   localStorage.setItem(AUTOFIX_KEY, String(enabled));
 }
+

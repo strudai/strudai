@@ -80,16 +80,28 @@ const TOURS: Tour[] = [
             for you.
             <br />
             <br />
-            An Anthropic API key is required. You can create one at{" "}
+            An API key is required. Enter it in the settings panel (&#x2699;) inside the chat.
+            <br />
+            <br />
+            Use an{" "}
             <a
               href="https://console.anthropic.com/settings/keys"
               target="_blank"
               rel="noreferrer"
               style={{ color: "var(--accent)", textDecoration: "underline" }}
             >
-              console.anthropic.com            </a>
-            . Enter it in the settings panel (&#x2699;) inside the chat. You
-            will be billed by Anthropic for API usage.
+              Anthropic key
+            </a>{" "}
+            (starts with <strong style={{ color: "var(--text-primary)" }}>sk-ant-</strong>) or an{" "}
+            <a
+              href="https://openrouter.ai/settings/keys"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "var(--accent)", textDecoration: "underline" }}
+            >
+              OpenRouter key
+            </a>{" "}
+            (starts with <strong style={{ color: "var(--text-primary)" }}>sk-or-</strong>) for access to GPT-4o, Gemini, Llama, and more.
           </span>
         ),
       },

@@ -11,11 +11,20 @@ npm install
 npm run dev
 ```
 
-Open the local URL. Click **[ HANS ]** in the top-right to open the chat. Enter your Anthropic API key in the settings panel (gear icon) to get started. An API key can be created at [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys). Note that you are billed directly by Anthropic for usage.
+Open the local URL. Click **[ HANS ]** in the top-right to open the chat. Enter an API key in the settings panel (gear icon) to get started.
+
+Two providers are supported — the key prefix is detected automatically:
+
+| Provider | Key prefix | Where to get one |
+|----------|------------|-----------------|
+| **Anthropic** | `sk-ant-…` | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
+| **OpenRouter** | `sk-or-…` | [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys) |
+
+You are billed directly by the provider for usage.
 
 ## How it works
 
-Fully client-side, no backend. The app embeds a `<strudel-editor>` web component (via CDN) and calls the Anthropic API directly from the browser using your key. The current editor code is injected into every system prompt so the agent always knows what is playing.
+Fully client-side, no backend. The app embeds a `<strudel-editor>` web component (via CDN) and calls the provider API directly from the browser using your key. The current editor code is injected into every system prompt so the agent always knows what is playing.
 
 ### Agent tools
 
@@ -27,7 +36,7 @@ Fully client-side, no backend. The app embeds a `<strudel-editor>` web component
 | `strudel_docs_search` | Search the official Strudel documentation |
 | `sample_search` | Find Strudel sample packs and sound names |
 | `example_search` | Search community Strudel patterns by keyword to understand chaining and function use |
-| `web_search` | Live web search (server-side, billed separately) |
+| `web_search` | Live web search via server-side tool (Anthropic or OpenRouter native) |
 | `plan_set` | Define the structure of a live set (songs, BPM, sections) |
 | `start_set` | Begin bar-aligned live set playback |
 | `stop_set` | End the active live set |
@@ -39,8 +48,8 @@ Ask Hans to plan a set - e.g. *"plan a 20-minute techno set at 135 BPM"* - and h
 ### Settings
 
 - **Theme** — Retro (amber CRT, default) or Classic (dark purple)
-- **Model** — choose from available Anthropic models
-- **API key** — stored in `localStorage`, never sent anywhere except the Anthropic API
+- **Model** — choose from available models for your provider (OpenRouter shows a searchable list)
+- **API key** — stored in `localStorage`, never sent anywhere except the provider API; provider is auto-detected from the key prefix (`sk-ant-` → Anthropic, `sk-or-` → OpenRouter)
 - **Auto-fix** — when enabled, console errors trigger an automatic fix turn
 - **Tools** — toggle individual tools on or off per category
 
@@ -51,7 +60,7 @@ The settings panel also shows token usage (cached vs. uncached input, output) fo
 ```text
 src/
   agent/
-    api.ts              Anthropic SDK streaming wrapper
+    api.ts              Anthropic + OpenRouter streaming wrapper with provider detection
     accent.ts           Germanises assistant text (Hans persona)
     error-buffer.ts     Console error capture and subscription
     set-state.ts        Live set state machine (plan, bars, markers)
@@ -125,7 +134,7 @@ docker compose up -d
 
 - **Frontend**: React, TypeScript, Vite, Tailwind CSS
 - **Onboarding**: nextstepjs
-- **API**: Anthropic SDK (client-side, user-provided key)
+- **API**: Anthropic SDK + OpenAI SDK (client-side, user-provided key; supports Anthropic and OpenRouter)
 - **Editor**: Strudel REPL web component via CDN
 - **Hosting**: nginx + Docker Compose
 

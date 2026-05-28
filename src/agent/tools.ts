@@ -446,6 +446,57 @@ async function exampleSearch(query: string): Promise<string> {
   }
 }
 
+interface DdgResponse {
+  Abstract?: string;
+  AbstractURL?: string;
+  AbstractSource?: string;
+  Answer?: string;
+  Results?: Array<{ Text?: string; FirstURL?: string }>;
+  RelatedTopics?: Array<{ Text?: string; FirstURL?: string; Topics?: Array<{ Text?: string; FirstURL?: string }> }>;
+}
+
+async function webSearch(query: string): Promise<string> {
+  try {
+    const url =
+      `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}` +
+      `&format=json&no_html=1&skip_disambig=1&t=strudelgpt`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      return JSON.stringify({ ok: false, error: `Search ${res.status}: ${res.statusText}` });
+    }
+    const data: DdgResponse = await res.json();
+
+    // Flatten results into a useful list for the LLM
+    const items: Array<{ text: string; url?: string }> = [];
+
+    if (data.Answer) items.push({ text: data.Answer });
+    if (data.Abstract) items.push({ text: data.Abstract, url: data.AbstractURL });
+
+    for (const r of data.Results ?? []) {
+      if (r.Text) items.push({ text: r.Text, url: r.FirstURL });
+    }
+    for (const t of data.RelatedTopics ?? []) {
+      if (t.Text) {
+        items.push({ text: t.Text, url: t.FirstURL });
+      }
+      // Some topics are grouped with a nested Topics array
+      for (const sub of t.Topics ?? []) {
+        if (sub.Text) items.push({ text: sub.Text, url: sub.FirstURL });
+      }
+    }
+
+    if (items.length === 0) {
+      return JSON.stringify({ query, results: [], note: "No results found." });
+    }
+    return JSON.stringify({ query, results: items.slice(0, 20) });
+  } catch (err) {
+    return JSON.stringify({
+      ok: false,
+      error: err instanceof Error ? err.message : "web_search failed",
+    });
+  }
+}
+
 export type ToolResultContent = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>;
 
 export async function executeTool(
@@ -502,6 +553,9 @@ export async function executeTool(
     }
     case "strudel_read_console": {
       return readConsole();
+    }
+    case "web_search": {
+      return webSearch(input.query as string);
     }
     case "strudel_docs_search": {
       return docsSearch(input.query as string);

@@ -446,6 +446,68 @@ html.theme-retro .cm-editor .cm-cursor {
   display: inline-block;
 }
 
+/* Provider badge shown below the API key field */
+.api-key-provider {
+  grid-column: 1 / -1;
+  margin-top: -0.25rem;
+  font-size: 0.7rem;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.api-key-provider[data-provider="anthropic"] { color: var(--text-secondary); }
+.api-key-provider[data-provider="openrouter"] { color: var(--accent); }
+
+/* Model field: stacks search input above the select for OpenRouter */
+.model-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.model-search-input {
+  width: 100%;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--input-border);
+  border-radius: 0.25rem;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.75rem;
+}
+.model-search-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.model-price-filter {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.price-tier-btn {
+  flex: 1;
+  padding: 0.15rem 0;
+  font-size: 0.7rem;
+  background: var(--input-bg);
+  color: var(--text-muted);
+  border: 1px solid var(--input-border);
+  border-radius: 0.2rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.price-tier-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+.price-tier-btn.active {
+  background: var(--accent);
+  color: black;
+  border-color: var(--accent);
+  font-weight: bold;
+}
+
 .tools-section {
   display: contents;
 }
