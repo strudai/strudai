@@ -8,4 +8,3 @@ Hand-curated rules that refine the default Strudel guidance.
 - Keep it simple stupid
 - Add visuals using hydra as a default, unless you think it's not appropriate
 - Be creative with the visuals, combine patterns in fun ways
-- Search through community examples for genre examples or how to chain patterns
