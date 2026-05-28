@@ -53,6 +53,39 @@ function initialMessages(): Message[] {
   return [{ role: "assistant", content: GREETING }];
 }
 
+const SEARCH_TOOL_NAMES = new Set([
+  "strudel_docs_search",
+  "sample_search",
+  "example_search",
+  "web_search",
+]);
+const SEARCH_RESULT_CAP = 4000;
+
+function capSearchResultForHistory(toolName: string, resultStr: string): string {
+  if (!SEARCH_TOOL_NAMES.has(toolName) || resultStr.length <= SEARCH_RESULT_CAP) {
+    return resultStr;
+  }
+  try {
+    const parsed = JSON.parse(resultStr) as { results?: unknown[]; [k: string]: unknown };
+    if (!Array.isArray(parsed.results) || parsed.results.length === 0) {
+      return resultStr.slice(0, SEARCH_RESULT_CAP);
+    }
+    let n = parsed.results.length;
+    while (n > 0) {
+      const candidate = JSON.stringify({
+        ...parsed,
+        results: parsed.results.slice(0, n),
+        ...(n < parsed.results.length ? { note: "[truncated]" } : {}),
+      });
+      if (candidate.length <= SEARCH_RESULT_CAP) return candidate;
+      n--;
+    }
+    return resultStr.slice(0, SEARCH_RESULT_CAP);
+  } catch {
+    return resultStr.slice(0, SEARCH_RESULT_CAP);
+  }
+}
+
 function summarizeSearchResult(resultStr: string): string {
   try {
     const parsed = JSON.parse(resultStr);
@@ -101,8 +134,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [visible, setVisible] = useState(false);
   const [usage, setUsage] = useState({
-    cachedInputTokens: 0,
-    uncachedInputTokens: 0,
+    inputTokens: 0,
     outputTokens: 0,
     contextTokens: 0,
   });
@@ -122,13 +154,11 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  function addUsage(cached: number, uncached: number, output: number) {
+  function addUsage(input: number, output: number, context: number) {
     setUsage((prev) => ({
-      cachedInputTokens: prev.cachedInputTokens + cached,
-      uncachedInputTokens: prev.uncachedInputTokens + uncached,
+      inputTokens: prev.inputTokens + input,
       outputTokens: prev.outputTokens + output,
-      // The latest request's full input is the context size at that point.
-      contextTokens: cached + uncached,
+      contextTokens: context,
     }));
   }
 
@@ -136,7 +166,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     if (isStreaming) return;
     setMessages(initialMessages());
     apiMessagesRef.current = [];
-    setUsage((prev) => ({ ...prev, contextTokens: 0 }));
+    setUsage({ inputTokens: 0, outputTokens: 0, contextTokens: 0 });
     clearPlan();
   }
 
@@ -179,7 +209,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       if (!abortController.signal.aborted && err instanceof Error) {
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: `Error: ${err.message}` },
+          { role: "tool" as const, toolName: "error", content: err.message },
         ]);
       }
     } finally {
@@ -377,33 +407,46 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       let streamingText = "";
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
-      const result = await streamChat({
-        messages: addHistoryCache(trimHistory(apiMessagesRef.current, 12)),
-        model: store.getModel(),
-        system,
-        apiKey,
-        tools,
-        signal,
-        onText: (chunk) => {
-          streamingText += chunk;
+      let result: Awaited<ReturnType<typeof streamChat>>;
+      try {
+        result = await streamChat({
+          messages: addHistoryCache(trimHistory(apiMessagesRef.current, 12)),
+          model: store.getModel(),
+          system,
+          apiKey,
+          tools,
+          signal,
+          onText: (chunk) => {
+            streamingText += chunk;
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last.role === "assistant") {
+                updated[updated.length - 1] = {
+                  ...last,
+                  content: germanise(streamingText),
+                };
+              }
+              return updated;
+            });
+          },
+        });
+      } catch (err) {
+        if (!streamingText) {
           setMessages((prev) => {
             const updated = [...prev];
             const last = updated[updated.length - 1];
-            if (last.role === "assistant") {
-              updated[updated.length - 1] = {
-                ...last,
-                content: germanise(streamingText),
-              };
-            }
+            if (last?.role === "assistant" && !last.content) updated.pop();
             return updated;
           });
-        },
-      });
+        }
+        throw err;
+      }
 
       addUsage(
-        result.cachedInputTokens,
-        result.uncachedInputTokens,
-        result.outputTokens
+        result.cachedInputTokens + result.uncachedInputTokens,
+        result.outputTokens,
+        result.cachedInputTokens + result.uncachedInputTokens,
       );
 
       // Remove empty assistant message if no text was streamed
@@ -422,22 +465,6 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
         ...apiMessagesRef.current,
         { role: "assistant", content: result.content },
       ];
-
-      // Display server-side tool calls (e.g. web_search runs on Anthropic's side)
-      for (const block of result.content) {
-        if (block.type === "server_tool_use" && block.name === "web_search") {
-          const query = (block.input as { query?: string }).query ?? "";
-          console.log(`[tool] web_search(${JSON.stringify({ query })})`);
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "tool" as const,
-              toolName: "web_search",
-              content: query ? `Searched: ${query}` : "Searching the web...",
-            },
-          ]);
-        }
-      }
 
       if (result.stopReason === "tool_use") {
         // Execute tool calls
@@ -466,7 +493,8 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
                       : block.name === "sample_search" ? `Searching samples: ${(toolInput.query as string) ?? ""}`
                         : block.name === "example_search" ? `Searching examples: ${(toolInput.query as string) ?? ""}`
                           : block.name === "strudel_vision" ? "Capturing screenshot..."
-                            : block.name,
+                            : block.name === "web_search" ? `Searching: ${(toolInput.query as string) ?? ""}`
+                              : block.name,
             },
           ]);
 
@@ -488,7 +516,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
                 ...last,
                 content: (block.name === "strudel_rewrite_code" || block.name === "strudel_edit_code") ? "Code updated"
                   : block.name === "strudel_read_console" ? summarizeConsoleResult(resultStr)
-                    : block.name === "strudel_docs_search" || block.name === "sample_search" || block.name === "example_search"
+                    : block.name === "strudel_docs_search" || block.name === "sample_search" || block.name === "example_search" || block.name === "web_search"
                       ? summarizeSearchResult(resultStr)
                       : block.name === "strudel_vision" ? "Screenshot captured"
                         : resultStr,
@@ -497,10 +525,15 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
             return updated;
           });
 
+          const historyContent =
+            typeof toolResult === "string"
+              ? capSearchResultForHistory(block.name, toolResult)
+              : toolResult;
+
           toolResults.push({
             type: "tool_result",
             tool_use_id: block.id,
-            content: toolResult,
+            content: historyContent,
           });
         }
 

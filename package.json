@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.95.1",
     "motion": "^12.38.0",
     "nextstepjs": "^2.2.0",
+    "openai": "^6.39.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
