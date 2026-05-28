@@ -74,6 +74,16 @@ export function subscribe(cb: () => void): () => void {
   };
 }
 
+type SectionEditCb = (songIndex: number, sectionIndex: number, absoluteBar: number) => void;
+const sectionEditListeners = new Set<SectionEditCb>();
+
+export function subscribeToSectionEdits(cb: SectionEditCb): () => void {
+  sectionEditListeners.add(cb);
+  return () => {
+    sectionEditListeners.delete(cb);
+  };
+}
+
 export function getPlan(): SetPlan | null {
   return state.plan;
 }
@@ -128,6 +138,13 @@ export function updateSectionNote(
   if (!section) return;
   section.note = note;
   emit();
+  // Notify preplan invalidation listeners with the absolute bar of this section.
+  const marker = allMarkers().find(
+    (m) => m.songIndex === songIndex && m.sectionIndex === sectionIndex
+  );
+  if (marker) {
+    sectionEditListeners.forEach((cb) => cb(songIndex, sectionIndex, marker.absoluteBar));
+  }
 }
 
 export function totalBars(): number {
@@ -193,4 +210,16 @@ export function activeMarker(bar: number): SetMarker | null {
     else break;
   }
   return active;
+}
+
+export function getLastFiredBar(): number {
+  return state.lastFiredBar;
+}
+
+/** Advance lastFiredBar to at least bar without going backwards. */
+export function advanceLastFiredBar(bar: number): void {
+  if (bar > state.lastFiredBar) {
+    state.lastFiredBar = bar;
+    emit();
+  }
 }

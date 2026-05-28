@@ -29,6 +29,7 @@ export interface StrudelEditorElement extends HTMLElement {
 
 export interface StrudelEditorHandle {
   getCode(): string;
-  setCode(code: string, evaluate?: boolean, typingOffset?: number, typingEnd?: number): void;
+  setCode(code: string, evaluate?: boolean, typingOffset?: number, typingEnd?: number, maxDurationMs?: number): void;
+  evaluate(): void;
 }
 

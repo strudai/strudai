@@ -25,3 +25,7 @@ Once `start_set` is called, bar-aligned trigger messages arrive in chat tagged `
 ### Stopping
 
 If the user says "stop the set" / "end it" / similar, call `stop_set`. Don't call it just because the music sounds wrong — fix the music instead.
+
+### Pre-planning
+
+When you receive a message prefixed `[pre-plan]`, generate the code for the upcoming section as you normally would. Call `strudel_rewrite_code` or `strudel_edit_code` with the complete prepared code. Do **not** call `strudel_read_console` — there is no live editor during pre-planning, so treat it as already clean.
