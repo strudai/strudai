@@ -2,6 +2,8 @@
 
 An AI assistant for [Strudel](https://strudel.cc/), the browser-based live coding music platform. Self hosted at [strudai.com](https://strudai.com).
 
+![StrudAI demo](docs/hans-demo.gif)
+
 ## Quick start
 
 ```bash

@@ -76,7 +76,11 @@ export const StrudelEditor = forwardRef<StrudelEditorHandle>(
         const el = document.getElementById("strudelEditor") as StrudelEditorElement | null;
         return el?.editor?.code ?? "";
       },
-      setCode(code: string, evaluate = true, typingOffset = 0, typingEnd = code.length) {
+      evaluate() {
+        const el = document.getElementById("strudelEditor") as StrudelEditorElement | null;
+        el?.editor?.evaluate();
+      },
+      setCode(code: string, evaluate = true, typingOffset = 0, typingEnd = code.length, maxDurationMs?: number) {
         const el = document.getElementById("strudelEditor") as StrudelEditorElement | null;
         if (!el?.editor) return;
 
@@ -94,8 +98,12 @@ export const StrudelEditor = forwardRef<StrudelEditorHandle>(
         // Typing animation — fast but visible.
         // Only the range [typingOffset, typingEnd) types character by character;
         // everything outside that range is shown instantly on every frame.
-        const CHUNK = 12;
+        // maxDurationMs caps the animation: CHUNK is scaled up so it finishes within that window.
         const DELAY = 16;
+        const rangeLen = typingEnd - typingOffset;
+        const CHUNK = maxDurationMs !== undefined
+          ? Math.max(12, Math.ceil(rangeLen / (maxDurationMs / DELAY)))
+          : 12;
         pendingCode = code;
         let pos = typingOffset;
         const suffix = code.slice(typingEnd);
