@@ -29,15 +29,14 @@ import {
 } from "./set-state";
 
 const CONSOLE_READ_WAIT_MS = 2500;
-const CONSOLE_READ_COUNT = 10;
+const CONSOLE_READ_COUNT = 20;
 
 async function readConsole(): Promise<string> {
   // Wait briefly so errors from a just-applied edit have time to surface.
   await new Promise((r) => setTimeout(r, CONSOLE_READ_WAIT_MS));
   const entries = getRecentConsole(CONSOLE_READ_COUNT);
   const lines = entries.map((e) => `[${e.level}] ${e.text}`);
-  const errorCount = entries.filter((e) => e.level === "error").length;
-  return JSON.stringify({ lines, errorCount });
+  return JSON.stringify({ lines });
 }
 
 export interface ToolMeta {

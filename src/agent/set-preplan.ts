@@ -30,6 +30,16 @@ export interface PreparedSection {
 }
 
 const store = new Map<number, PreparedSection>();
+const listeners = new Set<() => void>();
+
+function emit(): void {
+  listeners.forEach((cb) => cb());
+}
+
+export function subscribe(cb: () => void): () => void {
+  listeners.add(cb);
+  return () => listeners.delete(cb);
+}
 
 export function getPrepared(bar: number): PreparedSection | undefined {
   return store.get(bar);
@@ -37,15 +47,18 @@ export function getPrepared(bar: number): PreparedSection | undefined {
 
 export function setGenerating(bar: number): void {
   store.set(bar, { code: "", toolName: "strudel_rewrite_code", status: "generating" });
+  emit();
 }
 
 export function setReady(bar: number, code: string, toolName: PreplanToolName): void {
   store.set(bar, { code, toolName, status: "ready" });
+  emit();
 }
 
 export function markStale(bar: number): void {
   const entry = store.get(bar);
   if (entry) store.set(bar, { ...entry, status: "stale" });
+  emit();
 }
 
 /** Mark this bar and all higher bars as stale (used when a section note is edited). */
@@ -53,10 +66,12 @@ export function markStaleFrom(bar: number): void {
   for (const [key, entry] of store.entries()) {
     if (key >= bar) store.set(key, { ...entry, status: "stale" });
   }
+  emit();
 }
 
 export function clearAll(): void {
   store.clear();
+  emit();
 }
 
 export function isReady(bar: number): boolean {
