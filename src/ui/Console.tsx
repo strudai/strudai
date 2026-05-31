@@ -45,7 +45,14 @@ function format(args: unknown[]): string {
       if (typeof a === "string") return a;
       // Error objects: JSON.stringify yields "{}" since fields aren't
       // enumerable — use the stack (or message) instead.
-      if (a instanceof Error) return a.stack || `${a.name}: ${a.message}`;
+      if (a instanceof Error) {
+        const stack = a.stack || '';
+        const msg = `${a.name}: ${a.message}`;
+        // Firefox omits the error message from e.stack for errors thrown from
+        // compiled/eval'd code (e.g. Hydra's draw loop). Always include it.
+        if (!stack) return msg;
+        return (a.message && stack.includes(a.message)) ? stack : `${msg}\n${stack}`;
+      }
       try {
         const json = JSON.stringify(a);
         return json === "{}" || json === undefined ? String(a) : json;
@@ -61,8 +68,13 @@ function stripExternalStackFrames(text: string): string {
   const lines = text.split("\n").filter((line) => {
     // Firefox-style: "FnName@https://..." or "@https://..."
     if (/^\S*@https?:\/\//.test(line)) return false;
+    // blob: URL frames (Firefox: "draw@blob:http://..." — blob: prefix, not https://)
+    if (/^\S*@blob:/.test(line)) return false;
     // Chrome-style: "    at FnName (https://...)"
     if (/^\s+at\s.+https?:\/\//.test(line)) return false;
+    // Bare frame markers with no URL (e.g. "@", "draw@") — produced by Hydra's
+    // compiled draw function; they carry no actionable location info.
+    if (/^\S*@\s*$/.test(line)) return false;
     return true;
   });
   return lines.join("\n").trim();
