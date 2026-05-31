@@ -471,6 +471,13 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
           apiKey,
           tools,
           signal,
+          onServerToolUse: (_name, input) => {
+            const q = (input as { query?: string } | null)?.query;
+            setMessages((prev) => [
+              ...prev,
+              { role: "tool" as const, toolName: "web_search", content: q ? `Searching: ${q}` : "Web search" },
+            ]);
+          },
           onText: (chunk) => {
             streamingText += chunk;
             setMessages((prev) => {
