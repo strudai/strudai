@@ -169,7 +169,8 @@ export function SettingsDrawer({
         setModels(list);
         setModelsState("loaded");
         if (list.length > 0 && !list.some((m) => m.id === model)) {
-          setModel(list[0].id);
+          const haiku = list.find((m) => m.id.toLowerCase().includes("haiku"));
+          setModel(haiku ? haiku.id : list[0].id);
         }
       })
       .catch(() => {

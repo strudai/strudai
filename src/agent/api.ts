@@ -218,14 +218,16 @@ function anthropicToOpenAIMessages(
 function anthropicToOpenAITools(
   tools: Anthropic.ToolUnion[],
 ): OpenAI.Chat.ChatCompletionTool[] {
-  return (tools as Anthropic.Tool[]).map((tool) => ({
-    type: "function" as const,
-    function: {
-      name: tool.name,
-      description: tool.description ?? "",
-      parameters: tool.input_schema as Record<string, unknown>,
-    },
-  }));
+  return (tools as Anthropic.Tool[])
+    .filter((tool) => "input_schema" in tool)
+    .map((tool) => ({
+      type: "function" as const,
+      function: {
+        name: tool.name,
+        description: tool.description ?? "",
+        parameters: tool.input_schema as Record<string, unknown>,
+      },
+    }));
 }
 
 // ─── streamChat ──────────────────────────────────────────────────────────────
@@ -238,6 +240,7 @@ export interface StreamChatParams {
   tools?: Anthropic.ToolUnion[];
   onText: (chunk: string) => void;
   onToolCall?: (name: string, input: Record<string, unknown>) => void;
+  onServerToolUse?: (name: string, input: unknown) => void;
   signal?: AbortSignal;
 }
 
@@ -259,6 +262,7 @@ export async function streamChat({
   tools,
   onText,
   onToolCall,
+  onServerToolUse,
   signal,
 }: StreamChatParams): Promise<ChatResult> {
   if (signal?.aborted) {
@@ -289,6 +293,9 @@ export async function streamChat({
       ) {
         onText(event.delta.text);
       }
+      if (event.type === "content_block_start" && event.content_block.type === "server_tool_use") {
+        onServerToolUse?.(event.content_block.name, event.content_block.input);
+      }
     }
 
     const finalMessage = await stream.finalMessage();
@@ -318,12 +325,19 @@ export async function streamChat({
   // ─── OpenRouter path ───────────────────────────────────────────────────────
   const or = getOpenRouterClient(apiKey);
   const orMessages = anthropicToOpenAIMessages(messages, system);
-  const orTools = tools?.length ? anthropicToOpenAITools(tools) : undefined;
+  const orFunctionTools = tools?.length ? anthropicToOpenAITools(tools) : [];
+  const hasWebSearch = tools?.some(
+    (t) => (t as { type?: string }).type === "web_search_20260209",
+  );
+  const orAllTools: unknown[] = [
+    ...orFunctionTools,
+    ...(hasWebSearch ? [{ type: "openrouter:web_search" }] : []),
+  ];
 
   const stream = await or.chat.completions.create({
     model,
     messages: orMessages,
-    ...(orTools?.length ? { tools: orTools } : {}),
+    ...(orAllTools.length ? { tools: orAllTools as OpenAI.Chat.ChatCompletionTool[] } : {}),
     stream: true,
     stream_options: { include_usage: true },
   });
