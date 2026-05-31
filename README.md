@@ -62,13 +62,18 @@ src/
   agent/
     api.ts              Anthropic + OpenRouter streaming wrapper with provider detection
     accent.ts           Germanises assistant text (Hans persona)
+    audio-analyzer.ts   Web Audio FFT analyser tapped into Strudel's output node
+    audio-intercept.ts  Patches AudioNode.connect to discover Strudel's audio graph
+    canvas-intercept.ts Forces preserveDrawingBuffer on all WebGL contexts (Hydra capture)
     error-buffer.ts     Console error capture and subscription
+    performer.ts        Autonomous performer agent for live set sections
+    set-preplan.ts      Look-ahead pre-generation of upcoming live set sections
     set-state.ts        Live set state machine (plan, bars, markers)
     system-prompt.ts    Assembles system prompt from knowledge/*.md
     tools.ts            Tool definitions and executor
     types.ts            Shared types
+    visual-capture.ts   Captures Hydra/Strudel canvas for the strudel_vision tool
   ui/
-    App.tsx             Root component + onboarding tour wiring
     ChatPanel.tsx       Main chat component with agentic loop
     Console.tsx         Floating console panel
     MessageBubble.tsx   Message rendering
@@ -77,6 +82,7 @@ src/
     SettingsDrawer.tsx  API key, model, tool toggles, usage display
     StrudelEditor.tsx   Editor handle (getCode/setCode)
     index.css           All styles
+  App.tsx               Root component + onboarding tour wiring
   main.tsx              Entry point
   store.ts              localStorage wrappers
 knowledge/
