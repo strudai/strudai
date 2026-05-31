@@ -56,6 +56,18 @@ function format(args: unknown[]): string {
     .join(" ");
 }
 
+/** Strip stack-frame lines pointing to external package URLs. */
+function stripExternalStackFrames(text: string): string {
+  const lines = text.split("\n").filter((line) => {
+    // Firefox-style: "FnName@https://..." or "@https://..."
+    if (/^\S*@https?:\/\//.test(line)) return false;
+    // Chrome-style: "    at FnName (https://...)"
+    if (/^\s+at\s.+https?:\/\//.test(line)) return false;
+    return true;
+  });
+  return lines.join("\n").trim();
+}
+
 /**
  * Strudel's production build logs `[query] error:` with only `e.message` —
  * a minified, near-meaningless string. Recognise the common cases and append
@@ -78,7 +90,6 @@ function annotateStrudelError(text: string): string {
 export function Console() {
   const [lines, setLines] = useState<Line[]>([]);
   const [open, setOpen] = useState(false);
-  const [hasErrors, setHasErrors] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -89,16 +100,18 @@ export function Console() {
     function push(level: Level, args: unknown[]) {
       const filtered = filterStyledArgs(args);
       if (filtered.length === 0) return;
-      const text = annotateStrudelError(format(filtered));
+      const text = annotateStrudelError(stripExternalStackFrames(format(filtered)));
       setLines((prev) => {
         const next = [...prev, { level, text }];
         return next.length > MAX_LINES ? next.slice(next.length - MAX_LINES) : next;
       });
-      // Strudel logs some errors via console.log (e.g. "[getTrigger] error:"),
-      // not console.error — promote any message mentioning "error" to error level.
+      // Strudel logs some errors via console.log (e.g. "[query] error:"),
+      // not console.error — promote any message mentioning "error" to error level,
+      // unless it's a known transient internal error that code changes can't fix.
+      const isTransientInternal =
+        /\[getTrigger\]\s*error:\s*The provided value is non-finite/i.test(text);
       const effectiveLevel: Level =
-        level === "error" || /error/i.test(text) ? "error" : level;
-      if (effectiveLevel === "error") setHasErrors(true);
+        !isTransientInternal && (level === "error" || /error/i.test(text)) ? "error" : level;
       recordConsole(effectiveLevel, text);
     }
 
@@ -122,11 +135,6 @@ export function Console() {
     };
   }, []);
 
-  // Clear error indicator when user opens the panel
-  useEffect(() => {
-    if (open) setHasErrors(false);
-  }, [open]);
-
   // Auto-scroll to bottom when new lines arrive
   useEffect(() => {
     if (!open) return;
@@ -143,12 +151,7 @@ export function Console() {
         onClick={() => setOpen((v) => !v)}
         className="shrink-0 flex justify-between items-center px-2 py-1 text-[0.75rem] text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-transparent border-0 cursor-pointer transition-colors duration-300 select-none w-full"
       >
-        <span className="flex items-center gap-2">
-          <span>&gt;_ console</span>
-          {hasErrors && !open && (
-            <span className="w-2 h-2 rounded-full bg-[#f87171]" />
-          )}
-        </span>
+        <span>&gt;_ console</span>
         <span className="text-[0.65rem] inline-block transition-transform duration-300 group-data-[open]:rotate-180 data-[open]:rotate-180">
           {open ? "−" : "+"}
         </span>

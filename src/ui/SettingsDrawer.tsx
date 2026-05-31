@@ -43,8 +43,11 @@ export function SettingsDrawer({
   const [apiKey, setApiKey] = useState(store.getApiKey() ?? "");
   const [saved, setSaved] = useState(!!store.getApiKey());
   const [model, setModel] = useState(store.getModel());
+  const [performerModel, setPerformerModel] = useState(store.getPerformerModel());
   const [modelSearch, setModelSearch] = useState("");
   const [priceTier, setPriceTier] = useState<"all" | "free" | "budget" | "premium">("all");
+  const [performerModelSearch, setPerformerModelSearch] = useState("");
+  const [performerPriceTier, setPerformerPriceTier] = useState<"all" | "free" | "budget" | "premium">("all");
   const [models, setModels] = useState<ModelOption[]>([]);
   const [modelsState, setModelsState] = useState<"idle" | "loading" | "loaded" | "failed">(
     store.getApiKey() ? "loading" : "idle"
@@ -58,6 +61,7 @@ export function SettingsDrawer({
     setAutoFixState(enabled);
     store.setAutoFix(enabled);
   }
+  const [performerModelExpanded, setPerformerModelExpanded] = useState(false);
   const [toolsExpanded, setToolsExpanded] = useState(false);
   const [usageExpanded, setUsageExpanded] = useState(false);
   const [theme, setTheme] = useState<store.Theme>(store.getTheme());
@@ -96,6 +100,28 @@ export function SettingsDrawer({
 
   const provider = saved && apiKey ? detectProvider(apiKey) : null;
 
+  const filteredPerformerModels = useMemo(() => {
+    if (provider !== "openrouter") return models;
+    let result = models;
+    if (performerModelSearch.trim()) {
+      const q = performerModelSearch.toLowerCase();
+      result = result.filter(
+        (m) => m.id.toLowerCase().includes(q) || m.displayName.toLowerCase().includes(q),
+      );
+    }
+    if (performerPriceTier !== "all") {
+      result = result.filter((m) => {
+        const p = m.inputPricePerM;
+        if (p === undefined) return true;
+        if (performerPriceTier === "free") return p === 0;
+        if (performerPriceTier === "budget") return p > 0 && p < 1;
+        if (performerPriceTier === "premium") return p >= 1;
+        return true;
+      });
+    }
+    return result;
+  }, [models, performerModelSearch, performerPriceTier, provider]);
+
   const filteredModels = useMemo(() => {
     if (provider !== "openrouter") return models;
     let result = models;
@@ -121,6 +147,10 @@ export function SettingsDrawer({
   useEffect(() => {
     store.setModel(model);
   }, [model]);
+
+  useEffect(() => {
+    store.setPerformerModel(performerModel);
+  }, [performerModel]);
 
   // Fetch available models when API key is present
   useEffect(() => {
@@ -262,6 +292,75 @@ export function SettingsDrawer({
             </select>
           </span>
         </label>
+
+        <div className="tools-section">
+          {/* div instead of button so Y/N buttons can live inside without nesting <button> in <button> */}
+          <div
+            className="tools-summary"
+            onClick={() => setPerformerModelExpanded((v) => !v)}
+          >
+            <span>Performer model</span>
+            <span className="tools-summary-meta">
+              <span style={{ fontStyle: "italic", opacity: 0.6 }}>same as main</span>
+              <input
+                type="checkbox"
+                checked={performerModel === ""}
+                title={performerModel === "" ? "Same as main model" : "Using a specific model"}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setPerformerModel("");
+                  } else {
+                    setPerformerModel(model);
+                    setPerformerModelExpanded(true);
+                  }
+                }}
+              />
+              <span className="tools-chevron">▸</span>
+            </span>
+          </div>
+          <div className="tools-groups-wrapper" data-open={performerModelExpanded ? "" : undefined}>
+            <div className="tools-groups">
+              {provider === "openrouter" && modelsState === "loaded" && (
+                <>
+                  <input
+                    type="text"
+                    value={performerModelSearch}
+                    onChange={(e) => setPerformerModelSearch(e.target.value)}
+                    placeholder="Filter models..."
+                    className="model-search-input"
+                  />
+                  <div className="model-price-filter">
+                    {(["all", "free", "budget", "premium"] as const).map((tier) => (
+                      <button
+                        key={tier}
+                        type="button"
+                        className={`price-tier-btn${performerPriceTier === tier ? " active" : ""}`}
+                        onClick={() => setPerformerPriceTier(tier)}
+                      >
+                        {tier === "all" ? "All" : tier === "free" ? "Free" : tier === "budget" ? "<$1/M" : ">$1/M"}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              <select
+                value={performerModel}
+                onChange={(e) => setPerformerModel(e.target.value)}
+              >
+                <option value="">Same as model</option>
+                {filteredPerformerModels.map((m) => {
+                  const price = formatInputPrice(m.inputPricePerM);
+                  return (
+                    <option key={m.id} value={m.id}>
+                      {price ? `${m.displayName}  ·  ${price}` : m.displayName}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          </div>
+        </div>
 
         <label>
           <span>API key</span>

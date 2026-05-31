@@ -38,9 +38,18 @@ export function recordConsole(level: ConsoleLevel, text: string): void {
   listeners.forEach((cb) => cb());
 }
 
-/** Last `count` console entries, oldest first. */
+/** Last `count` unique console entries (by text), oldest first. */
 export function getRecentConsole(count: number): ConsoleEntry[] {
-  return buffer.slice(-count);
+  const seen = new Set<string>();
+  const result: ConsoleEntry[] = [];
+  for (let i = buffer.length - 1; i >= 0 && result.length < count; i--) {
+    const entry = buffer[i];
+    if (!seen.has(entry.text)) {
+      seen.add(entry.text);
+      result.push(entry);
+    }
+  }
+  return result.reverse();
 }
 
 /** Error-level entries since a timestamp (used by the auto-fix watcher). */

@@ -21,7 +21,8 @@ import { SettingsDrawer } from "./SettingsDrawer";
 import { SetPanel } from "./SetPanel";
 import { streamChat } from "../agent/api";
 import { BASE_PROMPT, SET_PROMPT } from "../agent/system-prompt";
-import { getActiveTools, executeTool, TOOLS } from "../agent/tools";
+import { getActiveTools, executeTool } from "../agent/tools";
+import { runPerformerTurn } from "../agent/performer";
 import { germanise } from "../agent/accent";
 import { subscribeToConsole, getErrorsSince } from "../agent/error-buffer";
 import {
@@ -31,28 +32,14 @@ import {
   getStartedAtMs as getSetStartedAtMs,
   totalBars as setTotalBars,
   allMarkers as getAllMarkers,
-  getLastFiredBar,
   advanceLastFiredBar,
-  subscribeToSectionEdits,
   stopSet,
   clearPlan,
   type SetMarker,
 } from "../agent/set-state";
-import {
-  isReady as isPreplanReady,
-  getCode as getPreplanCode,
-  setGenerating as setPreplanGenerating,
-  setReady as setPreplanReady,
-  markStaleFrom as markPreplanStaleFrom,
-  clearAll as clearPreplan,
-  getPrepared as getPreplanEntry,
-  type PreplanToolName,
-} from "../agent/set-preplan";
 import * as store from "../store";
 
-type DisplayHint =
-  | { kind: "auto-fix" }
-  | { kind: "set-trigger"; display: string };
+type DisplayHint = { kind: "auto-fix" };
 
 interface ChatPanelProps {
   editorRef: React.RefObject<StrudelEditorHandle | null>;
@@ -115,11 +102,6 @@ function summarizeToolResult(resultStr: string): string {
     const parsed = JSON.parse(resultStr);
     if (parsed.ok === false) return `failed: ${parsed.error ?? "unknown error"}`;
     if (parsed.ok === true) return "ok";
-    if (typeof parsed.errorCount === "number") {
-      return parsed.errorCount === 0
-        ? "console clean"
-        : `${parsed.errorCount} error${parsed.errorCount === 1 ? "" : "s"}`;
-    }
     if (Array.isArray(parsed.results)) {
       const n = parsed.results.length;
       return n === 0 ? "no matches" : `${n} result${n === 1 ? "" : "s"}`;
@@ -133,8 +115,13 @@ function summarizeToolResult(resultStr: string): string {
 function summarizeConsoleResult(resultStr: string): string {
   try {
     const parsed = JSON.parse(resultStr);
-    const n = parsed.errorCount ?? 0;
-    return n === 0 ? "console clean" : `${n} error${n === 1 ? "" : "s"}`;
+    const lines: string[] = parsed.lines ?? [];
+    const errors = lines.filter((l) => l.startsWith("[error]")).length;
+    const warns = lines.filter((l) => l.startsWith("[warn]")).length;
+    const parts: string[] = [];
+    if (errors) parts.push(`${errors} error${errors === 1 ? "" : "s"}`);
+    if (warns) parts.push(`${warns} warning${warns === 1 ? "" : "s"}`);
+    return parts.length ? parts.join(", ") : `${lines.length} line${lines.length === 1 ? "" : "s"}`;
   } catch {
     return "checked";
   }
@@ -151,193 +138,13 @@ function buildSectionTrigger(marker: SetMarker): { prompt: string; display: stri
   if (marker.isFirstSectionOfSong) {
     const intro =
       marker.songIndex === 0
-        ? `This is bar 0 of the set — first song "${song.name}". Use strudel_rewrite_code. Start the code with setcpm(${plan.bpm}). Foundation: ${song.foundation}`
-        : `Start of next song "${song.name}". Use strudel_rewrite_code for a fresh foundation (keep setcpm(${plan.bpm}) at the top). Foundation: ${song.foundation}`;
+        ? `Opening song "${song.name}" (${plan.bpm} BPM). Foundation: ${song.foundation}`
+        : `New song "${song.name}". Foundation: ${song.foundation}`;
     prompt += `\n\n${intro}`;
   }
   return { prompt, display };
 }
 
-/** Apply a strudel_edit_code operation to a string in memory (no editor). */
-function applyEditToString(
-  current: string,
-  input: Record<string, unknown>
-): { ok: true; code: string } | { ok: false; error: string } {
-  const mode = (input.mode as string | undefined) ?? "replace";
-  const newStr = input.new_string as string;
-
-  if (mode === "append") {
-    return { ok: true, code: current.trimEnd() + "\n" + newStr };
-  }
-
-  const oldStr = input.old_string as string | undefined;
-  if (!oldStr) return { ok: false, error: "old_string is required for mode: " + mode };
-  const count = current.split(oldStr).length - 1;
-  if (count === 0) return { ok: false, error: "old_string not found in current code" };
-  if (count > 1) return { ok: false, error: `old_string found ${count} times, must match exactly once` };
-
-  const idx = current.indexOf(oldStr);
-  if (mode === "replace") {
-    return { ok: true, code: current.slice(0, idx) + newStr + current.slice(idx + oldStr.length) };
-  } else if (mode === "insert_before") {
-    return { ok: true, code: current.slice(0, idx) + newStr + "\n" + current.slice(idx) };
-  } else if (mode === "insert_after") {
-    const end = idx + oldStr.length;
-    return { ok: true, code: current.slice(0, end) + "\n" + newStr + current.slice(end) };
-  }
-  return { ok: false, error: "Unknown mode: " + mode };
-}
-
-/**
- * Silent planning API call: asks the model to generate code for an upcoming
- * section. Returns { code, toolName } on success, or null if the model didn't
- * produce a code update (planning failed).
- */
-async function planSection(
-  marker: SetMarker,
-  contextCode: string,
-  apiKey: string,
-  model: string
-): Promise<{ code: string; toolName: PreplanToolName } | null> {
-  if (!getSetPlan()) return null;
-
-  const trigger = buildSectionTrigger(marker);
-  if (!trigger) return null;
-
-  const system: Anthropic.TextBlockParam[] = [
-    { type: "text", text: BASE_PROMPT, cache_control: { type: "ephemeral", ttl: "1h" } },
-    { type: "text", text: SET_PROMPT, cache_control: { type: "ephemeral", ttl: "1h" } },
-    ...(contextCode
-      ? [{ type: "text" as const, text: `[Current code in editor]\n\`\`\`\n${contextCode}\n\`\`\`` }]
-      : []),
-  ];
-
-  const planningTools = TOOLS.filter(
-    (t): t is Anthropic.Tool =>
-      "name" in t && (t.name === "strudel_rewrite_code" || t.name === "strudel_edit_code")
-  );
-
-  const loopMessages: Anthropic.MessageParam[] = [
-    { role: "user", content: `[pre-plan]\n${trigger.prompt}` },
-  ];
-
-  let capturedCode: string | null = null;
-  let capturedToolName: PreplanToolName = "strudel_rewrite_code";
-  let currentCode = contextCode;
-  let continueLoop = true;
-
-  while (continueLoop) {
-    if (!getSetPlan()) break;
-
-    let result: Awaited<ReturnType<typeof streamChat>>;
-    try {
-      result = await streamChat({ messages: loopMessages, model, system, apiKey, tools: planningTools, onText: () => {} });
-    } catch {
-      break;
-    }
-
-    loopMessages.push({ role: "assistant", content: result.content });
-
-    if (result.stopReason === "tool_use") {
-      const toolBlocks = result.content.filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
-      const toolResults: Anthropic.ToolResultBlockParam[] = [];
-
-      for (const block of toolBlocks) {
-        const input = block.input as Record<string, unknown>;
-        console.log(`[preplan] bar ${marker.absoluteBar} → ${block.name}`);
-        let content: string;
-
-        if (block.name === "strudel_rewrite_code") {
-          capturedCode = input.code as string;
-          capturedToolName = "strudel_rewrite_code";
-          currentCode = capturedCode;
-          content = JSON.stringify({ ok: true });
-        } else if (block.name === "strudel_edit_code") {
-          const applied = applyEditToString(currentCode, input);
-          if (applied.ok) {
-            capturedCode = applied.code;
-            capturedToolName = "strudel_edit_code";
-            currentCode = capturedCode;
-          }
-          content = applied.ok ? JSON.stringify({ ok: true }) : JSON.stringify({ ok: false, error: applied.error });
-        } else if (block.name === "strudel_read_console") {
-          content = JSON.stringify({ lines: [], errorCount: 0 });
-        } else {
-          content = JSON.stringify({ ok: false, error: "tool not available in pre-plan mode" });
-        }
-
-        toolResults.push({ type: "tool_result", tool_use_id: block.id, content });
-      }
-
-      loopMessages.push({ role: "user", content: toolResults });
-    } else {
-      continueLoop = false;
-    }
-  }
-
-  return capturedCode !== null ? { code: capturedCode, toolName: capturedToolName } : null;
-}
-
-/**
- * Pre-generate code for the next n upcoming sections, chaining each on the
- * result of the previous. Sections already 'ready' or 'generating' are
- * skipped. Caller is responsible for ensuring no concurrent invocations.
- */
-async function planAheadN(
-  n: number,
-  apiKey: string,
-  model: string,
-  getEditorCode: () => string
-): Promise<void> {
-  if (!getSetPlan()) return;
-
-  const lastFired = getLastFiredBar();
-  const upcoming = getAllMarkers()
-    .filter((m) => m.absoluteBar > lastFired)
-    .slice(0, n);
-
-  const toplan = upcoming.filter((m) => {
-    const p = getPreplanEntry(m.absoluteBar);
-    return !p || p.status === "stale";
-  });
-
-  if (toplan.length === 0) return;
-
-  let contextCode = getEditorCode();
-
-  for (const marker of toplan) {
-    if (!getSetPlan()) break;
-
-    // Chain: use the last ready section in the window as context
-    const prevReady = upcoming
-      .filter((m) => m.absoluteBar < marker.absoluteBar)
-      .reverse()
-      .find((m) => isPreplanReady(m.absoluteBar));
-    if (prevReady) contextCode = getPreplanCode(prevReady.absoluteBar) ?? contextCode;
-
-    console.log(`[preplan] planning bar ${marker.absoluteBar}...`);
-    setPreplanGenerating(marker.absoluteBar);
-
-    try {
-      const result = await planSection(marker, contextCode, apiKey, model);
-      if (result) {
-        setPreplanReady(marker.absoluteBar, result.code, result.toolName);
-        contextCode = result.code;
-        console.log(`[preplan] bar ${marker.absoluteBar} ready via ${result.toolName} (${result.code.length} chars)`);
-      } else {
-        console.warn(`[preplan] bar ${marker.absoluteBar} — no code captured`);
-        markPreplanStaleFrom(marker.absoluteBar);
-      }
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === "AbortError") {
-        console.log(`[preplan] bar ${marker.absoluteBar} aborted`);
-      } else {
-        console.error(`[preplan] bar ${marker.absoluteBar} error:`, err);
-      }
-      markPreplanStaleFrom(marker.absoluteBar);
-    }
-  }
-}
 
 export function ChatPanel({ editorRef }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -358,7 +165,10 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const anticipatedBarsRef = useRef(new Set<number>());
-  const isPlanningRef = useRef(false);
+  // Performer state — independent from chat streaming
+  const isPerformerStreamingRef = useRef(false);
+  const pendingPerformerMarkerRef = useRef<SetMarker | null>(null);
+  const performerAbortRef = useRef<AbortController | null>(null);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -377,7 +187,9 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
   }
 
   function handleClearChat() {
-    if (isStreaming) return;
+    abortRef.current?.abort();
+    setIsStreaming(false);
+    isStreamingRef.current = false;
     setMessages(initialMessages());
     apiMessagesRef.current = [];
     setUsage({ inputTokens: 0, outputTokens: 0, contextTokens: 0 });
@@ -401,13 +213,22 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     const displayMessage: Message =
       hint?.kind === "auto-fix"
         ? { role: "tool", toolName: "auto-fix", content: "Strudel error detected — fixing" }
-        : hint?.kind === "set-trigger"
-          ? { role: "tool", toolName: "set-trigger", content: hint.display }
-          : { role: "user", content: text };
+        : { role: "user", content: text };
     setMessages((prev) => [...prev, displayMessage]);
+
+    // For follow-up turns, prepend the current editor code so the model always
+    // sees the live state right before it responds — not just in the system
+    // prompt, which loses out to prior tool-call history.
+    const editorCodeForMsg = apiMessagesRef.current.length > 0
+      ? (editorRef.current?.getCode() ?? "")
+      : "";
+    const apiText = editorCodeForMsg
+      ? `[Current code in editor]\n\`\`\`\n${editorCodeForMsg}\n\`\`\`\n\n${text}`
+      : text;
+
     apiMessagesRef.current = [
       ...apiMessagesRef.current,
-      { role: "user", content: text },
+      { role: "user", content: apiText },
     ];
     if (!seedText) setInput("");
     setIsStreaming(true);
@@ -472,9 +293,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Bar watcher: ticks every 100ms while a set is active. Computes the
-  // fractional bar position and applies pre-planned code with a capped 500ms
-  // animation, scheduling evaluate() at the exact bar boundary.
+  // Bar watcher: ticks every 100ms, fires section triggers to the performer.
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
 
@@ -490,78 +309,15 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       if (Math.floor(exactBar) > total) { stopSet(); return; }
 
       const barDurationMs = 240_000 / plan.bpm;
-      const ANTICIPATION_MS = 550;
 
       for (const m of getAllMarkers()) {
         if (anticipatedBarsRef.current.has(m.absoluteBar)) continue;
-        const timeToMs = (m.absoluteBar - exactBar) * barDurationMs;
-        if (timeToMs > ANTICIPATION_MS) continue;
+        if ((m.absoluteBar - exactBar) * barDurationMs > 0) continue;
 
         anticipatedBarsRef.current.add(m.absoluteBar);
+        advanceLastFiredBar(m.absoluteBar);
 
-        const entry = getPreplanEntry(m.absoluteBar);
-        if (entry?.status === "ready") {
-          const { code, toolName } = entry;
-          const trigger = buildSectionTrigger(m);
-
-          // Show the section note as a set-trigger pill
-          if (trigger) {
-            setMessages((prev) => [
-              ...prev,
-              { role: "tool" as const, toolName: "set-trigger", content: trigger.display },
-            ]);
-          }
-
-          // Show "in progress" code tool pill
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "tool" as const,
-              toolName,
-              content: toolName === "strudel_rewrite_code" ? "Rewriting code..." : "Editing code...",
-            },
-          ]);
-
-          // Scale animation to finish at most 50ms before the bar fires.
-          const maxAnimMs = timeToMs > 50 ? Math.min(500, timeToMs - 50) : 0;
-          editorRef.current?.setCode(code, false, 0, code.length, maxAnimMs);
-
-          const evalDelay = Math.max(0, timeToMs);
-          console.log(`[preplan] bar ${m.absoluteBar} animating (${timeToMs.toFixed(0)}ms to bar)`);
-
-          setTimeout(() => {
-            editorRef.current?.evaluate();
-            advanceLastFiredBar(m.absoluteBar);
-
-            // Update pill to "Code updated"
-            setMessages((prev) => {
-              const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last?.role === "tool" && last.toolName === toolName) {
-                updated[updated.length - 1] = { ...last, content: "Code updated" };
-              }
-              return updated;
-            });
-
-            // Check console 2.5s after eval; if errors, send them to the model
-            const windowStart = Date.now();
-            setTimeout(() => {
-              if (isStreamingRef.current) return;
-              const errors = getErrorsSince(windowStart);
-              if (errors.length === 0) return;
-              const errText = [...new Set(errors)].join("\n");
-              handleSend(
-                `Section applied at bar ${m.absoluteBar}. Strudel error detected — fix it:\n\n${errText}`,
-                { kind: "set-trigger", display: `[bar ${m.absoluteBar}] error — fixing` }
-              );
-            }, 2500);
-
-            console.log(`[preplan] bar ${m.absoluteBar} evaluated`);
-          }, evalDelay);
-        } else {
-          console.warn(`[preplan] bar ${m.absoluteBar} not ready — skipping`);
-          advanceLastFiredBar(m.absoluteBar);
-        }
+        handlePerformerTrigger(m);
       }
     }
 
@@ -573,69 +329,69 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
         clearInterval(timer);
         timer = null;
         anticipatedBarsRef.current.clear();
+        pendingPerformerMarkerRef.current = null;
       }
     }
 
-    const unsubscribe = subscribeSet(syncTimer);
+    const unsubscribePlan = subscribeSet(() => {
+      anticipatedBarsRef.current.clear();
+      pendingPerformerMarkerRef.current = null;
+      performerAbortRef.current?.abort();
+      syncTimer();
+    });
     syncTimer();
     return () => {
-      unsubscribe();
+      unsubscribePlan();
       if (timer) clearInterval(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Planning worker: pre-generates code for the next 2 sections whenever the
-  // plan changes, the set activates, or a section note is edited.
-  useEffect(() => {
-    let lastPlan = getSetPlan();
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-    async function maybeReplan() {
-      if (!getSetPlan()) return;
-      const apiKey = store.getApiKey();
-      if (!apiKey) return;
-      if (isPlanningRef.current) return;
-      isPlanningRef.current = true;
-      try {
-        await planAheadN(2, apiKey, store.getModel(), () => editorRef.current?.getCode() ?? "");
-      } finally {
-        isPlanningRef.current = false;
-        scheduleReplan(); // re-check in case bars fired or edits happened during planning
-      }
+  async function handlePerformerTrigger(marker: SetMarker) {
+    const trigger = buildSectionTrigger(marker);
+    if (!trigger) return;
+
+    const apiKey = store.getApiKey();
+    if (!apiKey) return;
+
+    if (isPerformerStreamingRef.current) {
+      pendingPerformerMarkerRef.current = marker;
+      return;
     }
 
-    function scheduleReplan() {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(maybeReplan, 50);
-    }
+    isPerformerStreamingRef.current = true;
+    const abortController = new AbortController();
+    performerAbortRef.current = abortController;
 
-    const unsubscribePlan = subscribeSet(() => {
-      const plan = getSetPlan();
-      if (plan !== lastPlan) {
-        lastPlan = plan;
-        clearPreplan();
-        anticipatedBarsRef.current.clear();
-        if (!plan) return;
+    const code = editorRef.current?.getCode() ?? "";
+
+    try {
+      await runPerformerTurn({
+        apiKey,
+        model: store.getPerformerModel() || store.getModel(),
+        code,
+        sectionPrompt: trigger.prompt,
+        editorHandle: editorRef.current!,
+        signal: abortController.signal,
+      });
+    } catch (err) {
+      if (!abortController.signal.aborted && err instanceof Error) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "tool" as const, toolName: "error", content: err.message },
+        ]);
       }
-      scheduleReplan();
-    });
-
-    const unsubscribeEdits = subscribeToSectionEdits((_songIdx, _secIdx, absoluteBar) => {
-      markPreplanStaleFrom(absoluteBar);
-      scheduleReplan();
-    });
-
-    scheduleReplan();
-
-    return () => {
-      unsubscribePlan();
-      unsubscribeEdits();
-      if (debounceTimer) clearTimeout(debounceTimer);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+    } finally {
+      isPerformerStreamingRef.current = false;
+      performerAbortRef.current = null;
+      const pending = pendingPerformerMarkerRef.current;
+      if (pending) {
+        pendingPerformerMarkerRef.current = null;
+        void handlePerformerTrigger(pending);
+      }
+    }
+  }
 
   function buildSystem(code: string): Anthropic.TextBlockParam[] {
     const blocks: Anthropic.TextBlockParam[] = [
@@ -719,12 +475,11 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
             streamingText += chunk;
             setMessages((prev) => {
               const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last.role === "assistant") {
-                updated[updated.length - 1] = {
-                  ...last,
-                  content: germanise(streamingText),
-                };
+              for (let i = updated.length - 1; i >= 0; i--) {
+                if (updated[i].role === "assistant") {
+                  updated[i] = { ...updated[i], content: germanise(streamingText) };
+                  break;
+                }
               }
               return updated;
             });
@@ -734,8 +489,12 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
         if (!streamingText) {
           setMessages((prev) => {
             const updated = [...prev];
-            const last = updated[updated.length - 1];
-            if (last?.role === "assistant" && !last.content) updated.pop();
+            for (let i = updated.length - 1; i >= 0; i--) {
+              if (updated[i].role === "assistant" && !updated[i].content) {
+                updated.splice(i, 1);
+                break;
+              }
+            }
             return updated;
           });
         }
@@ -752,8 +511,11 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
       if (!streamingText) {
         setMessages((prev) => {
           const updated = [...prev];
-          if (updated[updated.length - 1]?.role === "assistant" && !updated[updated.length - 1].content) {
-            updated.pop();
+          for (let i = updated.length - 1; i >= 0; i--) {
+            if (updated[i].role === "assistant" && !updated[i].content) {
+              updated.splice(i, 1);
+              break;
+            }
           }
           return updated;
         });
@@ -804,6 +566,7 @@ export function ChatPanel({ editorRef }: ChatPanelProps) {
             editorRef.current!
           );
           const resultStr = typeof toolResult === "string" ? toolResult : "[image]";
+
           console.log(`[tool] ${block.name} → ${summarizeToolResult(resultStr)}`);
 
           // Update tool message with result
